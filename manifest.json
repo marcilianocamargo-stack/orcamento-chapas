@@ -1,0 +1,15 @@
+{
+  "name": "Orçamento de Chapas Prime",
+  "short_name": "Orçamento",
+  "description": "Calcula orçamento de chapas de papelão ondulado pelo R$/kg e confere o preço dos vendedores.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0f1e2e",
+  "theme_color": "#0f1e2e",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
