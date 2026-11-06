@@ -104,6 +104,14 @@ td input,td select{padding:5px 6px;font-size:13.5px;border-radius:5px}
 .totais .ruim b{color:#ff9d8c}.totais .bom b{color:#9fd3a8}
 
 /* colagem */
+.colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:6px}
+.colcampo label{margin:4px 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.colcampo textarea{font-size:13px;padding:6px 8px;line-height:1.5;resize:vertical}
+.colcampo.cheio textarea{border-color:var(--ok);background:#f7fcf8}
+.colcampo.ruim textarea{border-color:var(--alerta);background:#fff8f6}
+.colcampo .st{font-size:12px;min-height:16px;margin-top:2px;color:var(--tinta2);line-height:1.3}
+label.inline{display:flex;gap:8px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:var(--tinta);font-weight:500}
+label.inline input{padding:5px 8px}
 #colaAnalise .mapa{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 #colaAnalise .col{border:1px solid var(--linha);border-radius:8px;padding:6px 8px;background:var(--papel);min-width:140px;max-width:220px}
 #colaAnalise .col.ign{opacity:.6}
@@ -178,9 +186,26 @@ details.card>summary small{font-family:'Barlow';font-size:13px;font-weight:500;c
 
   <div class="card" id="cardColar">
     <div class="cardtop"><h2>Colar do Excel</h2>
-      <span class="nota" style="margin:0">Uma coluna de cada vez (largura, comprimento, quantidade, papel…) ou várias juntas, com ou sem cabeçalho.</span></div>
-    <textarea id="txtCola" rows="4" placeholder="Copie no Excel e cole aqui (Ctrl+V). Medida pode vir junta (796x2380, 796 X 2380, 796*2380) ou separada."></textarea>
-    <div id="colaAnalise"></div>
+      <span class="nota" style="margin:0">Copie a coluna inteira no Excel e cole no campo dela. Pode colar em vários campos: eles se juntam linha a linha nos itens.</span></div>
+    <div class="colunas" id="colunas">
+      <div class="colcampo" data-campo="qtde"><label>Quantidade</label><textarea rows="7" spellcheck="false" placeholder="1630&#10;480&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="papel"><label>Tipo de papel</label><textarea rows="7" spellcheck="false" placeholder="P50D&#10;P25B&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="larg"><label>Largura</label><textarea rows="7" spellcheck="false" placeholder="1,180 ou 1180&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="compr"><label>Comprimento</label><textarea rows="7" spellcheck="false" placeholder="2,590 ou 2590&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="medida"><label>Medida junta (L x C)</label><textarea rows="7" spellcheck="false" placeholder="796x2380&#10;796 X 2380&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="vincos"><label>Vincos</label><textarea rows="7" spellcheck="false" placeholder="118X560X118&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="vend"><label id="lblColVend">Preço do vendedor</label><textarea rows="7" spellcheck="false" placeholder="6,63&#10;…"></textarea><div class="st"></div></div>
+    </div>
+    <div class="acoes" style="margin-top:8px">
+      <label class="inline">Preencher a partir do item <input id="inIni" type="number" min="1" value="1" style="width:72px"></label>
+      <button class="btn mini sec" id="btnLimpaCampos">Limpar campos</button>
+      <span id="colunasResumo" class="nota" style="margin:0"></span>
+    </div>
+    <details id="detVarias" style="margin-top:12px">
+      <summary class="nota" style="cursor:pointer;margin:0"><b>Várias colunas de uma vez</b> (copiadas juntas do Excel, com ou sem cabeçalho) ou a planilha inteira do pedido</summary>
+      <textarea id="txtCola" rows="4" style="margin-top:8px" placeholder="Selecione várias colunas (ou a planilha inteira do pedido) no Excel, copie e cole aqui."></textarea>
+      <div id="colaAnalise"></div>
+    </details>
   </div>
 
   <div class="card">
@@ -557,7 +582,7 @@ function recalcTela() {
   if (orc.itens.length) renderPe();
   renderTotais(); renderConf(); infoKg();
 }
-function tudo() { recalc(); renderVend(); renderItens(); renderTotais(); renderConf(); renderCliente(); renderBanner(); }
+function tudo() { recalc(); renderVend(); renderItens(); renderTotais(); renderConf(); renderCliente(); renderBanner(); rotuloColVend(); }
 
 const corpo = $('#tbCorpo');
 corpo.addEventListener('input', e => {
@@ -624,9 +649,9 @@ $('#btnAddItem').addEventListener('click', () => {
 });
 $('#btnLimpaItens').addEventListener('click', () => {
   if (!orc.itens.length || !confirm('Tirar todos os ' + orc.itens.length + ' itens?')) return;
-  orc.itens = []; salvaOrc(); tudo();
+  orc.itens = []; limpaCamposColagem(); salvaOrc(); tudo();
 });
-$('#selVendModo').addEventListener('change', e => { orc.vendModo = e.target.value; salvaOrc(); renderItens(); });
+$('#selVendModo').addEventListener('change', e => { orc.vendModo = e.target.value; salvaOrc(); renderItens(); rotuloColVend(); });
 
 /* ---------- totais ---------- */
 function renderTotais() {
@@ -760,7 +785,92 @@ function renderBanner() {
   const ir = $('#btnIrTabela'); if (ir) ir.addEventListener('click', () => trocaAba('Tabela'));
 }
 
-/* ---------- colar do Excel ---------- */
+/* ---------- campos de colagem por coluna ----------
+   Cada campo recebe uma coluna inteira do Excel e preenche aquele dado dos itens, de cima para baixo,
+   a partir do item escolhido. O que está no campo é o que vale: colar de novo substitui. */
+const colAplicadas = {};          // campo -> { ini, n }: itens que o campo preencheu da última vez
+const colTimers = {};
+function linhasDaColuna(txt) {
+  const l = String(txt || '').replace(/\r\n?/g, '\n').split('\n').map(s => s.replace(/ /g, ' ').trim());
+  while (l.length && l[l.length - 1] === '') l.pop();
+  return l;
+}
+function limpaCampo(it, campo) {
+  if (campo === 'medida') { delete it.larg; delete it.compr; }
+  else if (campo === 'vend') Object.values(VEND_CAMPO).forEach(k => delete it[k]);
+  else if (campo === 'papel') { delete it.papel; delete it.onda; }
+  else delete it[campo];
+}
+const itemVazio = it => !Object.keys(it).some(k => it[k] != null && it[k] !== '');
+function aplicaColuna(box) {
+  const campo = box.dataset.campo, ta = box.querySelector('textarea'), st = box.querySelector('.st');
+  if (/\t/.test(ta.value)) {      // várias colunas num campo só: vai para o quadro de várias colunas
+    $('#detVarias').open = true; $('#txtCola').value = ta.value; ta.value = '';
+    box.className = 'colcampo'; st.innerHTML = ''; analisaCola();
+    $('#detVarias').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('Isso tinha várias colunas: mandei para o quadro “Várias colunas de uma vez”', '', 5000);
+    return;
+  }
+  const linhas = linhasDaColuna(ta.value);
+  const ini = Math.max(1, parseInt($('#inIni').value, 10) || 1) - 1;
+  const ant = colAplicadas[campo];
+  if (ant) for (let i = ant.ini; i < ant.ini + ant.n; i++) if (orc.itens[i]) limpaCampo(orc.itens[i], campo);
+  const ruins = [];
+  linhas.forEach((v, k) => {
+    const i = ini + k;
+    while (orc.itens.length <= i) orc.itens.push({});
+    const it = orc.itens[i];
+    if (!v) return;                 // célula vazia no Excel: deixa o item sem esse dado
+    let ok = true;
+    if (campo === 'medida') {
+      const md = C.lerMedida(v);
+      if (md) { it.larg = md.larg; it.compr = md.compr; } else ok = false;
+    } else {
+      aplicaCampo(it, campo, v);
+      if (campo === 'qtde' || campo === 'larg' || campo === 'compr') ok = it[campo] > 0;
+      else if (campo === 'vend') ok = it[VEND_CAMPO[orc.vendModo]] > 0;
+      else if (campo === 'papel') ok = !C.achaPapel(it.papel, it.onda, papeis()).erro;
+    }
+    if (!ok) ruins.push(k + 1);
+    C.normalizaPapel(it, papeis());
+  });
+  colAplicadas[campo] = { ini, n: linhas.length };
+  while (orc.itens.length && itemVazio(orc.itens[orc.itens.length - 1])) orc.itens.pop();
+  const n = linhas.filter(Boolean).length;
+  box.className = 'colcampo' + (ruins.length ? ' ruim' : (n ? ' cheio' : ''));
+  st.innerHTML = !linhas.length ? '' : (ruins.length
+    ? '<span class="m-erro">não entendi a linha ' + ruins.slice(0, 5).join(', ') + (ruins.length > 5 ? '…' : '') + '</span>'
+    : '<span class="st-ok">✓ ' + n + ' → ' + (linhas.length === 1 ? 'item ' + (ini + 1) : 'itens ' + (ini + 1) + ' a ' + (ini + linhas.length)) + '</span>');
+  resumoColunas();
+  salvaOrc(); tudo();
+}
+function resumoColunas() {
+  const cont = $$('#colunas .colcampo').map(b => ({ nome: b.querySelector('label').textContent, n: linhasDaColuna(b.querySelector('textarea').value).length })).filter(x => x.n);
+  const el = $('#colunasResumo');
+  if (cont.length < 2) { el.innerHTML = ''; return; }
+  el.innerHTML = new Set(cont.map(x => x.n)).size === 1
+    ? '<span class="st-ok">✓ ' + cont.length + ' colunas com ' + cont[0].n + ' linhas cada</span>'
+    : '<span class="m-erro">⚠ quantidade de linhas diferente: ' + esc(cont.map(x => x.nome + ' ' + x.n).join(' · ')) + ' — confira se não faltou ou sobrou linha</span>';
+}
+function limpaCamposColagem() {
+  $$('#colunas .colcampo').forEach(b => { b.querySelector('textarea').value = ''; b.querySelector('.st').innerHTML = ''; b.className = 'colcampo'; });
+  Object.keys(colAplicadas).forEach(k => delete colAplicadas[k]);
+  $('#inIni').value = 1; $('#colunasResumo').innerHTML = '';
+}
+function rotuloColVend() {
+  $('#lblColVend').textContent = 'Vendedor ' + ({ un: 'R$/chapa', m2: 'R$/m²', tot: 'total', totipi: 'c/ IPI' })[orc.vendModo || 'un'];
+  $('#lblColVend').title = 'Preço que o vendedor passou — ' + ({ un: 'por chapa', m2: 'por m²', tot: 'total do item sem IPI', totipi: 'total do item com IPI' })[orc.vendModo || 'un'] + ' (muda na tabela de itens)';
+}
+$$('#colunas .colcampo').forEach(box => {
+  box.querySelector('textarea').addEventListener('input', () => {
+    clearTimeout(colTimers[box.dataset.campo]);
+    colTimers[box.dataset.campo] = setTimeout(() => aplicaColuna(box), 350);
+  });
+});
+$('#inIni').addEventListener('change', () => $$('#colunas .colcampo').forEach(b => { if (b.querySelector('textarea').value.trim()) aplicaColuna(b); }));
+$('#btnLimpaCampos').addEventListener('click', limpaCamposColagem);
+
+/* ---------- colar do Excel (várias colunas de uma vez) ---------- */
 function camposVaziosAtuais() {
   if (!orc.itens.length) return C.ORDEM_COLAGEM;
   return C.ORDEM_COLAGEM.filter(f => orc.itens.filter(it => it[f] == null || it[f] === '').length >= orc.itens.length / 2);
@@ -846,7 +956,7 @@ function renderCola() {
 function aplicaCola() {
   const { lista } = itensDaCola();
   const novos = lista.map(x => x.it);
-  if (cola.modo === 'substituir') orc.itens = novos;
+  if (cola.modo === 'substituir') { orc.itens = novos; limpaCamposColagem(); }
   else if (cola.modo === 'novos') orc.itens = orc.itens.concat(novos);
   else novos.forEach((it, k) => { orc.itens[k] = it; });
   let msg = lista.length + ' linha(s) aplicadas';
@@ -923,7 +1033,7 @@ $('#btnSalvar').addEventListener('click', () => { guardaNosSalvos(); toast('Orç
 $('#btnNovo').addEventListener('click', () => {
   if (orc.alterado && orc.itens.length && !confirm('O orçamento atual tem alterações não salvas. Começar outro mesmo assim?')) return;
   const vendId = orc.vendId;
-  orc = novoOrc();
+  orc = novoOrc(); limpaCamposColagem();
   if (vendId && cfg.vendedores.some(v => v.id === vendId)) selecionaVendedor(vendId);
   salvaOrc(false); tudo(); toast('Novo orçamento nº ' + orc.num);
 });
@@ -947,7 +1057,7 @@ $('#listaSalvos').addEventListener('click', e => {
   if (a) {
     const s = salvos.find(x => x.id === a.dataset.abre); if (!s) return;
     if (orc.alterado && orc.itens.length && orc.id !== s.id && !confirm('O orçamento atual tem alterações não salvas. Abrir o nº ' + s.num + ' mesmo assim?')) return;
-    orc = JSON.parse(JSON.stringify(s)); delete orc.resumo; delete orc.salvoEm; orc.alterado = false;
+    orc = JSON.parse(JSON.stringify(s)); delete orc.resumo; delete orc.salvoEm; orc.alterado = false; limpaCamposColagem();
     salvaOrc(false); trocaAba('Orc'); tudo();
   }
   if (d) {
