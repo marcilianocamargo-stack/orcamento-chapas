@@ -573,7 +573,7 @@ function valorCampo(it, campo) {
     case 'qtde': return isFinite(it.qtde) && it.qtde != null ? String(it.qtde) : '';
     case 'larg': case 'compr': return it[campo] != null && isFinite(it[campo]) ? C.fmtMM(+it[campo]) : '';
     case 'papel': return (it.papel || '') + (it.onda ? ' ' + it.onda : '');
-    case 'vincos': return it.vincos || '';
+    case 'vincos': return it.vincos || 'X';      // sem vinco = "X", como no pedido e no Excel
     case 'vend': { const k = VEND_CAMPO[orc.vendModo]; return it[k] > 0 ? fVal(+it[k]) : ''; }
     case 'pkg': return it.precoKg > 0 ? fVal(+it.precoKg) : '';
   }
@@ -1067,7 +1067,7 @@ function renderCola() {
     const it = x.it, vend = it.vUn > 0 ? fRv(+it.vUn) : (it.vM2 > 0 ? fRv(+it.vM2) + '/m²' : (it.vTot > 0 ? fRv(+it.vTot) + ' tot' : (it.vTotIpi > 0 ? fRv(+it.vTotIpi) + ' c/IPI' : '')));
     return '<tr class="' + (vazioErro ? 'erro' : (!faltas.length && avisos.length ? 'aviso' : '')) + '"><td>' + (cola.modo === 'completar' ? k + 1 : (cola.modo === 'novos' ? orc.itens.length + k + 1 : k + 1)) + '</td>' +
       '<td class="num">' + (it.qtde != null ? fN(+it.qtde, 0) : '') + '</td><td>' + (it.larg ? C.fmtMM(+it.larg) : '?') + ' x ' + (it.compr ? C.fmtMM(+it.compr) : '?') + '</td>' +
-      '<td>' + esc((it.papel || '') + (it.onda ? ' ' + it.onda : '')) + '</td><td>' + esc(it.vincos || '') + '</td><td class="num">' + vend + '</td>' +
+      '<td>' + esc((it.papel || '') + (it.onda ? ' ' + it.onda : '')) + '</td><td>' + esc(it.vincos || 'X') + '</td><td class="num">' + vend + '</td>' +
       '<td class="num">' + (isFinite(r.vUnit) ? fR(r.vUnit) : '') + '</td><td class="st">' + st + '</td></tr>';
   });
   h += '<div class="modos"><span class="nota" style="margin:0">Fazer o quê:</span>' +
