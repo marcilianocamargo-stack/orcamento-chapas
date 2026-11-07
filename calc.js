@@ -4,7 +4,7 @@
 
    Regra da Prime (tabela de especificação):
      peso da chapa (kg)  = largura (m) × comprimento (m) × g/m² do papel ÷ 1000
-     V. unit. (R$)       = peso × R$/kg combinado (+ adicional da linha do papel), arredondado no centavo
+     V. unit. (R$)       = peso × R$/kg que vale para o item (ver precoKgItem), arredondado no centavo
      V. produtos         = V. unit. × quantidade
      IPI                 = V. produtos × 3,25%   (arredondado no centavo)
      V. total            = V. produtos + IPI
@@ -138,7 +138,24 @@ function achaPapel(txt, ondaTxt, papeis) {
 }
 
 /* ---------- cálculo ---------- */
-/* ctx: { precoKg, ipi, tol, adicional:{linha:R$}, papeis, limites, precoBase, vendedores:[{nome,precoKg}] } */
+/* ctx: { precoKg (geral), especiais:{ onda:{B,C,BC}, branco, papel:{cod:R$} }, ipi, tol, papeis, limites,
+          precoBase, vendedores:[{nome,precoKg}] }
+   R$/kg de cada item — vale o mais específico:
+     preço do item (lápis) → preço do tipo de papel → branco → onda (B, C, dupla BC) → geral */
+const NOME_ONDA = { B: 'onda B', C: 'onda C', BC: 'dupla (BC)' };
+function precoKgItem(it, papel, ctx) {
+  const e = ctx.especiais || {};
+  if (it && it.precoKg > 0) return { v: +it.precoKg, fonte: 'item' };
+  if (papel) {
+    const pp = e.papel || {};
+    const k = Object.keys(pp).find(c => normCod(c) === normCod(papel.cod));
+    if (k && pp[k] > 0) return { v: +pp[k], fonte: papel.cod };
+    if (papel.linha === 'branca' && e.branco > 0) return { v: +e.branco, fonte: 'branco' };
+    const po = (e.onda || {})[papel.onda];
+    if (po > 0) return { v: +po, fonte: NOME_ONDA[papel.onda] || papel.onda };
+  }
+  return { v: +ctx.precoKg || 0, fonte: 'geral' };
+}
 function calcItem(it, ctx) {
   const r = { erros: [], avisos: [] };
   const q = Number(it.qtde), L = Number(it.larg), C = Number(it.compr);
@@ -158,9 +175,11 @@ function calcItem(it, ctx) {
     if (v && Math.abs(v.soma - L) > 1 && Math.abs(v.soma - C) > 1)
       r.avisos.push('vincos somam ' + fmtMM(v.soma) + ' mm, mas a chapa é ' + fmtMM(L) + ' x ' + fmtMM(C));
   }
-  if (!(ctx.precoKg > 0)) { if (!r.erros.length) r.erros.push('falta o R$/kg'); }
+  const pk = precoKgItem(it, r.papel, ctx);
+  r.fontePreco = pk.fonte;
+  if (!(pk.v > 0)) { if (!r.erros.length) r.erros.push('falta o R$/kg'); }
   else if (r.papel && r.m2) {
-    r.precoKg = ctx.precoKg + ((ctx.adicional || {})[r.papel.linha] || 0);
+    r.precoKg = pk.v;
     r.kgUn = r.m2 * r.papel.g / 1000;
     r.rm2 = r.papel.g / 1000 * r.precoKg;
     r.vUnitExato = r.kgUn * r.precoKg;
@@ -214,10 +233,13 @@ function conferir(it, r, ctx) {
 }
 function diagnostico(c, r, ctx) {
   const perto = (a, b) => Math.abs(a - b) / b <= Math.max(0.003, 0.0051 / c.vUn);
-  const adic = r.precoKg - ctx.precoKg;
+  const e = ctx.especiais || {};
   const cands = [];
-  if (ctx.precoBase > 0) cands.push([ctx.precoBase + adic, 'preço de tabela']);
-  (ctx.vendedores || []).forEach(v => { if (v.precoKg > 0) cands.push([v.precoKg + adic, 'R$/kg de ' + v.nome]); });
+  if (ctx.precoKg > 0) cands.push([+ctx.precoKg, 'preço geral do orçamento']);
+  if (ctx.precoBase > 0) cands.push([+ctx.precoBase, 'preço de tabela']);
+  if (e.branco > 0) cands.push([+e.branco, 'preço do branco']);
+  Object.entries(e.onda || {}).forEach(([o, v]) => { if (v > 0) cands.push([+v, 'preço da ' + (NOME_ONDA[o] || o)]); });
+  (ctx.vendedores || []).forEach(v => { if (v.precoKg > 0) cands.push([+v.precoKg, 'R$/kg de ' + v.nome]); });
   for (const [p, nome] of cands)
     if (Math.abs(p - r.precoKg) > 0.0001 && perto(c.kgEf, p))
       return 'usou R$ ' + fmtN(p, 2) + '/kg (' + nome + ') em vez de R$ ' + fmtN(r.precoKg, 2) + '/kg';
@@ -517,7 +539,7 @@ function normalizaPapel(it, papeis) {
   return it;
 }
 
-const api = { LINHAS, PAPEIS_PADRAO, LIMITES, CAMPOS, ORDEM_COLAGEM, semAcento, normCod, arred, fmtN, fmtR, fmtMM,
+const api = { LINHAS, PAPEIS_PADRAO, LIMITES, CAMPOS, ORDEM_COLAGEM, NOME_ONDA, precoKgItem, semAcento, normCod, arred, fmtN, fmtR, fmtMM,
   numBR, paraMM, lerDim, lerMedida, lerVincos, normOnda, achaPapel, calcItem, calcOrcamento, lerTSV,
   analisaColagem, montaItens, normalizaPapel, campoDoCabecalho, tipoValor, lerDadosPedido };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else raiz.Calc = api;

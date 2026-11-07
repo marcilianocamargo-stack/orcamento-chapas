@@ -103,6 +103,20 @@ td input,td select{padding:5px 6px;font-size:13.5px;border-radius:5px}
 .totais .sep{border-left:1px solid #2c4a6b;padding-left:18px}
 .totais .ruim b{color:#ff9d8c}.totais .bom b{color:#9fd3a8}
 
+/* preços especiais e lápis */
+.especiais{margin-top:10px;padding-top:8px;border-top:1px dashed var(--linha)}
+.grade.esp{grid-template-columns:repeat(4,minmax(90px,1fr)) minmax(250px,2fr)}
+.grade.esp label{margin-top:6px}
+.espPapel .linha{display:flex;gap:6px}.espPapel select{flex:1.3;min-width:0}.espPapel input{flex:1;min-width:0}
+input.usado,.tag.usado{background:var(--amarelo-bg);border-color:#ecd39b;font-weight:600}
+.tag .del{font-size:14px;padding:0 2px}
+#tbItens td.in.pkg{white-space:nowrap}
+#tbItens td.in.pkg input{width:64px;text-align:right;border-color:transparent;background:transparent}
+#tbItens td.in.pkg input:hover,#tbItens td.in.pkg input:focus{border-color:var(--linha);background:#fff}
+#tbItens td.in.pkg.esp input{background:var(--amarelo-bg);border-color:#ecd39b;font-weight:700}
+#tbItens td.in.pkg input::placeholder{color:var(--tinta2);opacity:1}
+.lapis{border:0;background:none;color:var(--azul);cursor:pointer;font-size:15px;padding:0 2px;vertical-align:middle}
+@media (max-width:900px){.grade.esp{grid-template-columns:repeat(2,minmax(0,1fr))}.espPapel{grid-column:1/-1}}
 /* colagem */
 .colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:6px}
 .colcampo label{margin:4px 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -176,11 +190,24 @@ details.card>summary small{font-family:'Barlow';font-size:13px;font-weight:500;c
   <div class="card">
     <div class="grade">
       <div><label for="selVend">Vendedor</label><select id="selVend"></select></div>
-      <div><label for="inKg">R$ por kg</label><input id="inKg" inputmode="decimal" autocomplete="off" placeholder="R$ por kg"></div>
+      <div><label for="inKg">R$ por kg (geral)</label><input id="inKg" inputmode="decimal" autocomplete="off" placeholder="R$ por kg"></div>
       <div><label for="inNum">Orçamento nº</label><input id="inNum" inputmode="numeric" autocomplete="off"></div>
       <div><label for="inData">Data</label><input id="inData" type="date"></div>
     </div>
     <div id="kgInfo" class="nota"></div>
+    <div class="especiais">
+      <div class="nota" style="margin:0 0 2px"><b>Preço diferente</b> (opcional — em branco vale o geral; vale o mais específico: item ✎ → tipo de papel → branco → onda)</div>
+      <div class="grade esp">
+        <div><label>Onda B</label><input data-esp="onda.B" inputmode="decimal" autocomplete="off"></div>
+        <div><label>Onda C</label><input data-esp="onda.C" inputmode="decimal" autocomplete="off"></div>
+        <div><label>Dupla (BC)</label><input data-esp="onda.BC" inputmode="decimal" autocomplete="off"></div>
+        <div><label>Branco</label><input data-esp="branco" inputmode="decimal" autocomplete="off"></div>
+        <div class="espPapel"><label>Só um tipo de papel</label>
+          <div class="linha"><select id="selEspPapel"></select><input id="inEspPapel" inputmode="decimal" autocomplete="off" placeholder="R$/kg"><button class="btn mini sec" id="btnEspPapel">Pôr</button></div>
+        </div>
+      </div>
+      <div id="chipsEspPapel" class="chips"></div>
+    </div>
     <div id="rm2Info" class="chips"></div>
   </div>
 
@@ -211,7 +238,7 @@ details.card>summary small{font-family:'Barlow';font-size:13px;font-weight:500;c
   <div class="card">
     <div class="cardtop"><h2>Itens</h2>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="nota" style="margin:0">Preço do vendedor em</span>
+        <span class="nota" style="margin:0" title="Só para a conferência: diz o que é o número que você colou na coluna Vendedor">Preço que o vendedor passou está em</span>
         <select id="selVendModo" style="width:auto;padding:5px 8px">
           <option value="un">R$ por chapa</option>
           <option value="m2">R$ por m²</option>
@@ -224,7 +251,7 @@ details.card>summary small{font-family:'Barlow';font-size:13px;font-weight:500;c
       <thead><tr>
         <th>#</th><th>Quant.</th><th>Largura</th><th>Compr.</th><th>Papel</th><th>Vincos</th>
         <th class="num">g/m²</th><th class="num">m²/ch.</th><th class="num">kg/ch.</th><th class="num">kg total</th>
-        <th class="num">R$/m²</th><th class="num">V. unit.</th><th class="num">V. produtos</th>
+        <th class="num" title="R$ por kg de cada item. O lápis dá um preço só para aquele item">R$/kg ✎</th><th class="num">R$/m²</th><th class="num">V. unit.</th><th class="num">V. produtos</th>
         <th class="num" title="Preço que o vendedor passou">Vendedor</th><th class="num">Dif.</th><th></th>
       </tr></thead>
       <tbody id="tbCorpo"></tbody>
@@ -283,17 +310,15 @@ details.card>summary small{font-family:'Barlow';font-size:13px;font-weight:500;c
       <div><label>Preço de tabela (R$/kg)</label><input data-cfg="precoBase" inputmode="decimal" placeholder="R$ por kg"></div>
       <div><label>IPI (%)</label><input data-cfg="ipi" inputmode="decimal"></div>
       <div><label>Tolerância na conferência (%)</label><input data-cfg="tol" inputmode="decimal"></div>
-      <div><label>Papel branco: a mais por kg (R$)</label><input data-cfg="adicional.branca" inputmode="decimal"></div>
-      <div><label>Papel kraft: a mais por kg (R$)</label><input data-cfg="adicional.kraft" inputmode="decimal"></div>
     </div>
     <p class="nota">Cálculo: peso = largura × comprimento × g/m² ÷ 1000; V. unit. = peso × R$/kg (arredondado no centavo); IPI sobre o total dos produtos.
-      Papel branco e kraft usam o R$/kg do orçamento mais o valor "a mais" acima. Diferença dentro da tolerância conta como certa.</p>
+      Preço diferente para onda B, C, dupla, branco ou um tipo de papel se põe no próprio orçamento (e fica guardado no vendedor). Diferença dentro da tolerância conta como certa.</p>
   </div>
 
   <div class="card">
     <div class="cardtop"><h2>Vendedores</h2><button class="btn mini" id="btnAddVend">+ Vendedor</button></div>
     <div class="tabwrap"><table>
-      <thead><tr><th>Nome</th><th>R$/kg combinado</th><th>Fone</th><th>E-mail</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>R$/kg geral</th><th>Fone</th><th>E-mail</th><th>Preços diferentes</th><th></th></tr></thead>
       <tbody id="tbVend"></tbody>
     </table></div>
   </div>
@@ -357,10 +382,10 @@ const VEND_CAMPO = { un: 'vUn', m2: 'vM2', tot: 'vTot', totipi: 'vTotIpi' };
 const CAMPOS_TAB = ['qtde', 'larg', 'compr', 'papel', 'vincos'];
 
 /* ---------- estado ---------- */
-const CFG_PADRAO = { precoBase: null, ipi: 3.25, tol: 0.5, adicional: { branca: 0, kraft: 0 }, vendedores: [],
+const CFG_PADRAO = { precoBase: null, ipi: 3.25, tol: 0.5, vendedores: [],
   papeis: null, limites: Object.assign({}, C.LIMITES), proxNum: 1 };
 let cfg = Object.assign({}, CFG_PADRAO, ler(K_CFG, {}));
-cfg.adicional = Object.assign({ branca: 0, kraft: 0 }, cfg.adicional || {});
+cfg.adicional = undefined;   // versão 1 tinha "a mais por kg" na aba Tabela; agora o branco tem preço próprio no orçamento
 cfg.limites = Object.assign({}, C.LIMITES, cfg.limites || {});
 cfg.vendedores = Array.isArray(cfg.vendedores) ? cfg.vendedores : [];
 let salvos = ler(K_SALVOS, []);
@@ -372,12 +397,12 @@ let calc = null, cola = null;
 function novoOrc() {
   return { id: novoId(), num: cfg.proxNum, data: hojeISO(), cliente: '', cnpj: '', ie: '', endereco: '', bairro: '',
     cidade: '', email: '', contato: '', vendId: '', vendNome: '', vendFone: '', vendEmail: '',
-    precoKg: cfg.precoBase, frete: 'CIF', prazo: '', entrega: '', vendModo: 'un', vendTotal: null,
+    precoKg: cfg.precoBase, especiais: {}, frete: 'CIF', prazo: '', entrega: '', vendModo: 'un', vendTotal: null,
     vendTotalModo: 's', itens: [], alterado: false };
 }
 const papeis = () => cfg.papeis || C.PAPEIS_PADRAO;
 const ctx = () => ({ precoKg: +orc.precoKg || 0, ipi: (+cfg.ipi || 0) / 100, tol: (+cfg.tol || 0) / 100,
-  adicional: cfg.adicional, papeis: papeis(), limites: cfg.limites, precoBase: +cfg.precoBase || 0,
+  especiais: orc.especiais || {}, papeis: papeis(), limites: cfg.limites, precoBase: +cfg.precoBase || 0,
   vendedores: cfg.vendedores });
 const salvaCfg = () => grava(K_CFG, cfg);
 function salvaOrc(alterou) { if (alterou !== false) orc.alterado = true; grava(K_ATUAL, orc); }
@@ -407,8 +432,28 @@ function vendAtual() { return cfg.vendedores.find(v => v.id === orc.vendId) || n
 function selecionaVendedor(id) {
   orc.vendId = id || '';
   const v = vendAtual();
-  if (v) { orc.precoKg = v.precoKg; orc.vendNome = v.nome; orc.vendFone = v.fone || ''; orc.vendEmail = v.email || ''; }
-  else orc.precoKg = cfg.precoBase;
+  if (v) { orc.precoKg = v.precoKg; orc.especiais = limpaEsp(v.especiais); orc.vendNome = v.nome; orc.vendFone = v.fone || ''; orc.vendEmail = v.email || ''; }
+  else { orc.precoKg = cfg.precoBase; orc.especiais = {}; }
+}
+/* preços especiais: { onda:{B,C,BC}, branco, papel:{cod:R$} } — tira o que está vazio */
+function limpaEsp(e) {
+  e = JSON.parse(JSON.stringify(e || {}));
+  const out = {}, onda = {}, pp = {};
+  ['B', 'C', 'BC'].forEach(o => { if ((e.onda || {})[o] > 0) onda[o] = +e.onda[o]; });
+  if (Object.keys(onda).length) out.onda = onda;
+  if (e.branco > 0) out.branco = +e.branco;
+  Object.keys(e.papel || {}).sort().forEach(c => { if (e.papel[c] > 0) pp[c] = +e.papel[c]; });
+  if (Object.keys(pp).length) out.papel = pp;
+  return out;
+}
+const mesmoEsp = (a, b) => JSON.stringify(limpaEsp(a)) === JSON.stringify(limpaEsp(b));
+function textoEsp(e) {
+  e = limpaEsp(e);
+  const partes = [];
+  ['B', 'C', 'BC'].forEach(o => { if (e.onda && e.onda[o]) partes.push(C.NOME_ONDA[o] + ' ' + fN(e.onda[o], 2)); });
+  if (e.branco) partes.push('branco ' + fN(e.branco, 2));
+  Object.entries(e.papel || {}).forEach(([c, v]) => partes.push(c + ' ' + fN(v, 2)));
+  return partes.join(' · ');
 }
 function renderVend() {
   const sel = $('#selVend');
@@ -428,26 +473,76 @@ function infoKg() {
   if (!(p > 0)) h = '<span class="m-erro">Informe o R$ por kg deste orçamento.</span>';
   else {
     const vsBase = base > 0 && Math.abs(p - base) > 0.00001 ? ' · ' + fPct((p - base) / base) + ' em relação à tabela (' + kg2(base) + ')' : '';
-    if (v && Math.abs(p - (+v.precoKg || 0)) > 0.00001)
-      h = '<b>Avulso:</b> ' + kg2(p) + ' (combinado com ' + esc(v.nome) + ': ' + (v.precoKg > 0 ? kg2(+v.precoKg) : 'nenhum') + ')' + vsBase +
-        ' · <button class="linkbtn" id="btnGuardaKg">guardar ' + kg2(p) + ' como preço de ' + esc(v.nome) + '</button>';
-    else if (v) h = 'Combinado com <b>' + esc(v.nome) + '</b>: ' + kg2(p) + vsBase;
-    else if (base > 0 && Math.abs(p - base) < 0.00001) h = 'Preço de tabela: ' + kg2(p);
-    else h = '<b>Avulso:</b> ' + kg2(p) + vsBase;
+    const esp = textoEsp(orc.especiais);
+    const espTxt = esp ? ' · diferentes: ' + esc(esp) : '';
+    if (v && (Math.abs(p - (+v.precoKg || 0)) > 0.00001 || !mesmoEsp(orc.especiais, v.especiais)))
+      h = '<b>Avulso:</b> geral ' + kg2(p) + espTxt + ' (guardado para ' + esc(v.nome) + ': ' + (v.precoKg > 0 ? kg2(+v.precoKg) : 'nenhum') +
+        (textoEsp(v.especiais) ? ' · ' + esc(textoEsp(v.especiais)) : '') + ')' +
+        ' · <button class="linkbtn" id="btnGuardaKg">guardar estes preços para ' + esc(v.nome) + '</button>';
+    else if (v) h = 'Preços de <b>' + esc(v.nome) + '</b>: geral ' + kg2(p) + espTxt + vsBase;
+    else if (base > 0 && Math.abs(p - base) < 0.00001) h = 'Preço de tabela: ' + kg2(p) + espTxt;
+    else h = '<b>Avulso:</b> geral ' + kg2(p) + espTxt + vsBase;
   }
   $('#kgInfo').innerHTML = h;
   const b = $('#btnGuardaKg');
   if (b) b.addEventListener('click', () => {
     const vv = vendAtual(); if (!vv) return;
-    vv.precoKg = +orc.precoKg; salvaCfg(); renderVend(); toast('Preço de ' + vv.nome + ' agora é ' + kg2(vv.precoKg));
+    vv.precoKg = +orc.precoKg; vv.especiais = limpaEsp(orc.especiais); salvaCfg(); renderVend();
+    toast('Preços de ' + vv.nome + ' guardados: geral ' + kg2(vv.precoKg) + (textoEsp(vv.especiais) ? ' · ' + textoEsp(vv.especiais) : ''));
   });
-  // R$/m² dos papéis usados
+  // R$/m² dos papéis usados (pelo preço do papel/onda/branco, sem o lápis dos itens)
   const cx = ctx(), usados = new Map();
-  (calc ? calc.rs : []).forEach(r => { if (r.papel && isFinite(r.rm2)) usados.set(r.papel.cod, r); });
-  $('#rm2Info').innerHTML = p > 0 ? Array.from(usados.values()).sort((a, b) => a.papel.cod.localeCompare(b.papel.cod))
-    .map(r => '<span class="tag" title="' + r.papel.g + ' g/m² × ' + kg2(r.precoKg) + '">' + esc(r.papel.cod) + ' ' + r.papel.g + ' g · R$ ' + fN(r.rm2, 3) + '/m²</span>').join('') : '';
-  void cx;
+  (calc ? calc.rs : []).forEach(r => { if (r.papel) usados.set(r.papel.cod, r.papel); });
+  $('#rm2Info').innerHTML = p > 0 ? Array.from(usados.values()).sort((a, b) => a.cod.localeCompare(b.cod)).map(pa => {
+    const pk = C.precoKgItem({}, pa, cx);
+    return '<span class="tag" title="' + pa.g + ' g/m² × ' + kg2(pk.v) + ' (' + esc(pk.fonte) + ')">' + esc(pa.cod) + ' ' + pa.g + ' g' +
+      (pk.fonte !== 'geral' ? ' · ' + kg2(pk.v) : '') + ' · R$ ' + fN(pa.g / 1000 * pk.v, 3) + '/m²</span>';
+  }).join('') : '';
+  renderEsp();
 }
+/* ---------- preços especiais (onda, branco, tipo de papel) ---------- */
+function pegaEsp(caminho) { return caminho.split('.').reduce((o, k) => (o == null ? o : o[k]), orc.especiais || {}); }
+function renderEsp() {
+  const geral = +orc.precoKg > 0 ? fVal(+orc.precoKg) : '';
+  $$('[data-esp]').forEach(el => {
+    el.placeholder = geral ? geral + ' (geral)' : 'geral';
+    if (document.activeElement !== el) { const v = pegaEsp(el.dataset.esp); el.value = v > 0 ? fVal(+v) : ''; }
+    el.classList.toggle('usado', pegaEsp(el.dataset.esp) > 0);
+  });
+  const sel = $('#selEspPapel');
+  if (sel.options.length !== papeis().length + 1) sel.innerHTML = '<option value="">escolha o papel…</option>' + papeis().map(pa => '<option>' + esc(pa.cod) + '</option>').join('');
+  const pp = (orc.especiais || {}).papel || {};
+  $('#chipsEspPapel').innerHTML = Object.keys(pp).filter(c => pp[c] > 0).sort().map(c =>
+    '<span class="tag usado">' + esc(c) + ' ' + kg2(+pp[c]) + ' <button class="del" data-delesp="' + esc(c) + '" title="Tirar">×</button></span>').join('');
+}
+function poeEsp(caminho, v) {
+  const ks = caminho.split('.');
+  orc.especiais = orc.especiais || {};
+  let o = orc.especiais;
+  ks.slice(0, -1).forEach(k => { o = o[k] = o[k] || {}; });
+  o[ks[ks.length - 1]] = v > 0 ? v : null;
+  orc.especiais = limpaEsp(orc.especiais);
+}
+$$('[data-esp]').forEach(el => el.addEventListener('input', () => {
+  const v = C.numBR(el.value, 'un');
+  poeEsp(el.dataset.esp, isFinite(v) ? v : null);
+  salvaOrc(); recalcTela();
+}));
+$$('[data-esp]').forEach(el => el.addEventListener('change', () => renderEsp()));
+$('#btnEspPapel').addEventListener('click', () => {
+  const cod = $('#selEspPapel').value, v = C.numBR($('#inEspPapel').value, 'un');
+  if (!cod) return toast('Escolha o tipo de papel', 'ruim');
+  if (!(v > 0)) return toast('Informe o R$/kg desse papel', 'ruim');
+  poeEsp('papel.' + cod, v);
+  $('#inEspPapel').value = ''; $('#selEspPapel').value = '';
+  salvaOrc(); tudo();
+});
+$('#inEspPapel').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnEspPapel').click(); });
+$('#chipsEspPapel').addEventListener('click', e => {
+  const b = e.target.closest('[data-delesp]'); if (!b) return;
+  poeEsp('papel.' + b.dataset.delesp, null);
+  salvaOrc(); tudo();
+});
 $('#selVend').addEventListener('change', e => { selecionaVendedor(e.target.value); salvaOrc(); tudo(); });
 $('#inKg').addEventListener('input', e => {
   const v = C.numBR(e.target.value, 'un'); orc.precoKg = isFinite(v) && v > 0 ? v : null; salvaOrc(); recalcTela();
@@ -464,6 +559,7 @@ function valorCampo(it, campo) {
     case 'papel': return (it.papel || '') + (it.onda ? ' ' + it.onda : '');
     case 'vincos': return it.vincos || '';
     case 'vend': { const k = VEND_CAMPO[orc.vendModo]; return it[k] > 0 ? fVal(+it[k]) : ''; }
+    case 'pkg': return it.precoKg > 0 ? fVal(+it.precoKg) : '';
   }
   return '';
 }
@@ -484,6 +580,7 @@ function aplicaCampo(it, campo, txt) {
       if (isFinite(v) && v > 0) it[VEND_CAMPO[orc.vendModo]] = v;
       break;
     }
+    case 'pkg': { const v = C.numBR(txt, 'un'); it.precoKg = isFinite(v) && v > 0 ? v : null; break; }
   }
 }
 function celulasCalc(i) {
@@ -497,10 +594,30 @@ function celulasCalc(i) {
     isFinite(r.m2) ? fN(r.m2, 4) : '',
     isFinite(r.kgUn) ? fN(r.kgUn, 3) : '',
     isFinite(r.kgTot) ? fN(r.kgTot, 1) : '',
+    '|',
     ok ? fN(r.rm2, 3) : '',
     ok ? fN(r.vUnit, 2) : '',
     isFinite(r.vProd) ? fN(r.vProd, 2) : ''
   ];
+}
+/* R$/kg do item: em branco vale o do papel/onda/branco/geral (aparece apagado); o lápis põe um preço só deste item */
+function herdadoPkg(i) {
+  const r = calc.rs[i];
+  return C.precoKgItem({}, r.papel, ctx());
+}
+function htmlPkg(i) {
+  const it = orc.itens[i], h = herdadoPkg(i), esp = it.precoKg > 0;
+  return '<td class="in pkg' + (esp ? ' esp' : '') + '" title="' + esc(esp ? 'Preço só deste item (sem ele: ' + kg2(h.v) + ', ' + h.fonte + ')' : 'R$/kg ' + h.fonte + '. Clique no lápis para dar um preço só para este item') + '">' +
+    '<button class="lapis" data-lapis="' + i + '" tabindex="-1" title="Preço só deste item">✎</button>' +
+    '<input data-i="' + i + '" data-campo="pkg" value="' + esc(valorCampo(it, 'pkg')) + '" placeholder="' + esc(h.v > 0 ? fVal(h.v) : '') + '" inputmode="decimal" autocomplete="off"></td>';
+}
+function atualizaPkg(i, tr) {
+  const td = tr.querySelector('td.pkg'); if (!td) return;
+  const it = orc.itens[i], h = herdadoPkg(i), esp = it.precoKg > 0;
+  td.classList.toggle('esp', esp);
+  td.title = esp ? 'Preço só deste item (sem ele: ' + kg2(h.v) + ', ' + h.fonte + ')' : 'R$/kg ' + h.fonte + '. Clique no lápis para dar um preço só para este item';
+  const inp = td.querySelector('input');
+  inp.placeholder = h.v > 0 ? fVal(h.v) : '';
 }
 function htmlDif(r) {
   if (!r.conf) return '';
@@ -519,6 +636,10 @@ function htmlMsg(i) {
       (isFinite(c.difTot) ? '; ' + fRs(c.difTot) + ' no item' : '') + ') — ' + esc(c.dica) + '</span>');
   }
   if (r.conf) r.conf.contas.forEach(t => partes.push('<span class="m-erro">✗ conta do vendedor: ' + esc(t) + '</span>'));
+  if (r.fontePreco === 'item' && isFinite(r.precoKg)) {
+    const h = herdadoPkg(i);
+    partes.push('<span class="m-dica">✎ preço especial deste item: ' + kg2(r.precoKg) + (h.v > 0 ? ' (' + fPct((r.precoKg - h.v) / h.v) + ' sobre ' + kg2(h.v) + ')' : '') + '</span>');
+  }
   return partes.join(' &nbsp;·&nbsp; ');
 }
 function classeLinha(r) {
@@ -530,7 +651,7 @@ function classeLinha(r) {
 function renderItens() {
   const corpo = $('#tbCorpo');
   if (!orc.itens.length) {
-    corpo.innerHTML = '<tr><td colspan="16" class="vazio">Nenhum item. Cole as colunas do pedido no quadro acima ou clique em “+ Item”.</td></tr>';
+    corpo.innerHTML = '<tr><td colspan="17" class="vazio">Nenhum item. Cole as colunas do pedido no quadro acima ou clique em “+ Item”.</td></tr>';
     $('#tbPe').innerHTML = '';
     return;
   }
@@ -539,12 +660,12 @@ function renderItens() {
     return '<tr class="item ' + classeLinha(r) + '" data-i="' + i + '"><td class="n">' + (i + 1) + '</td>' +
       CAMPOS_TAB.map(c => '<td class="in ' + c + '"><input data-i="' + i + '" data-campo="' + c + '" value="' + esc(valorCampo(it, c)) + '"' +
         (c === 'papel' || c === 'vincos' ? '' : ' inputmode="decimal"') + ' autocomplete="off" spellcheck="false"></td>').join('') +
-      celulasCalc(i).map(h => '<td class="num calc">' + h + '</td>').join('') +
+      celulasCalc(i).map(h => h === '|' ? htmlPkg(i) : '<td class="num calc">' + h + '</td>').join('') +
       '<td class="in vend"><input data-i="' + i + '" data-campo="vend" value="' + esc(valorCampo(it, 'vend')) + '" inputmode="decimal" autocomplete="off" placeholder="' +
       esc(placeholderVend(it)) + '"></td>' +
       '<td class="num difc">' + htmlDif(r) + '</td>' +
       '<td><button class="del" data-del="' + i + '" title="Tirar o item">×</button></td></tr>' +
-      '<tr class="msg" data-msg="' + i + '"' + (msg ? '' : ' hidden') + '><td colspan="16">' + msg + '</td></tr>';
+      '<tr class="msg" data-msg="' + i + '"' + (msg ? '' : ' hidden') + '><td colspan="17">' + msg + '</td></tr>';
   }).join('');
   renderPe();
 }
@@ -558,7 +679,7 @@ function renderPe() {
   const temConf = t.conf.n > 0;
   $('#tbPe').innerHTML = '<tr><td></td><td class="num">' + fN(t.chapas, 0) + '</td><td colspan="5" class="nota" style="font-weight:500">' +
     t.itens + ' ite' + (t.itens === 1 ? 'm' : 'ns') + (t.erros ? ' · <span class="m-erro">' + t.erros + ' com problema</span>' : '') + '</td>' +
-    '<td class="num">' + fN(t.m2, 2) + ' m²</td><td></td><td class="num">' + fN(t.kg, 1) + '</td><td></td><td></td>' +
+    '<td class="num">' + fN(t.m2, 2) + ' m²</td><td></td><td class="num">' + fN(t.kg, 1) + '</td><td></td><td></td><td></td>' +
     '<td class="num">' + fN(t.vProd, 2) + '</td><td class="num">' + (temConf ? fN(t.conf.vendProd, 2) : '') + '</td>' +
     '<td class="num">' + (temConf ? '<span class="dif ' + (Math.abs(t.conf.vendProd - t.conf.corretoProd) < 0.02 ? 'st-ok' : (t.conf.vendProd < t.conf.corretoProd ? 'st-abaixo' : 'st-acima')) + '">' +
       fPct((t.conf.vendProd - t.conf.corretoProd) / t.conf.corretoProd) + '</span>' : '') + '</td><td></td></tr>';
@@ -568,8 +689,9 @@ function atualizaLinha(i) {
   if (!tr) return;
   const r = calc.rs[i];
   tr.className = 'item ' + classeLinha(r);
-  const cs = celulasCalc(i);
+  const cs = celulasCalc(i).filter(h => h !== '|');
   tr.querySelectorAll('td.calc').forEach((td, k) => { td.innerHTML = cs[k]; });
+  atualizaPkg(i, tr);
   tr.querySelector('td.difc').innerHTML = htmlDif(r);
   const m = document.querySelector('#tbCorpo tr.msg[data-msg="' + i + '"]');
   const h = htmlMsg(i);
@@ -605,6 +727,8 @@ corpo.addEventListener('change', e => {
   salvaOrc(); recalcTela();
 });
 corpo.addEventListener('click', e => {
+  const lp = e.target.closest('[data-lapis]');
+  if (lp) { const inp = lp.parentNode.querySelector('input'); inp.focus(); inp.select(); return; }
   const b = e.target.closest('[data-del]'); if (!b) return;
   orc.itens.splice(+b.dataset.del, 1); salvaOrc(); tudo();
 });
@@ -625,7 +749,7 @@ corpo.addEventListener('paste', e => {
   if (!/[\t\n]/.test(txt.replace(/[\r\n]+$/, ''))) return;   // um valor só: colagem normal
   e.preventDefault();
   const grade = C.lerTSV(txt, { semEspacos: true });
-  const ordem = CAMPOS_TAB.concat(['vend']);
+  const ordem = inp.dataset.campo === 'pkg' ? ['pkg'] : CAMPOS_TAB.concat(['vend']);
   const c0 = ordem.indexOf(inp.dataset.campo), i0 = +inp.dataset.i;
   grade.forEach((lin, di) => {
     const i = i0 + di;
@@ -685,9 +809,9 @@ function renderConf() {
   el.hidden = false;
   const div = calc.rs.map((r, i) => ({ r, i })).filter(x => x.r.conf && (x.r.conf.status !== 'ok' || x.r.conf.contas.length));
   const cx = ctx();
-  // R$/kg que o vendedor usou (sem o adicional de linha), juntando valores a menos de 0,4% um do outro
+  // R$/kg que o vendedor usou, juntando valores a menos de 0,4% um do outro
   const vals = calc.rs.filter(r => r.conf && isFinite(r.conf.kgEf))
-    .map(r => ({ v: r.conf.kgEf - (r.precoKg - cx.precoKg), cod: r.papel.cod })).sort((a, b) => a.v - b.v);
+    .map(r => ({ v: r.conf.kgEf, cod: r.papel.cod, ok: r.conf.status === 'ok' })).sort((a, b) => a.v - b.v);
   const grupos = [];
   vals.forEach(x => {
     const g = grupos[grupos.length - 1];
@@ -696,17 +820,19 @@ function renderConf() {
   const gruposTxt = grupos.sort((a, b) => b.itens.length - a.itens.length).map(g => {
     const media = g.itens.reduce((s, x) => s + x.v, 0) / g.itens.length, n = g.itens.length;
     const cods = Array.from(new Set(g.itens.map(x => x.cod)));
-    const certo = Math.abs(media - cx.precoKg) / cx.precoKg <= Math.max(0.004, (+cfg.tol || 0) / 100);
+    const certo = g.itens.every(x => x.ok);
     return '<span class="tag ' + (certo ? 'st-ok' : 'st-abaixo') + '">R$ ' + fN(media, 2) + '/kg · ' + n + ' ite' + (n === 1 ? 'm' : 'ns') + ' (' + cods.join(', ') + ')</span>';
   }).join('');
   let h = '<div class="cardtop"><h2>Conferência do vendedor</h2><button class="btn mini" id="btnCopiaConf">Copiar para WhatsApp</button></div>';
+  const combinado = kg2(cx.precoKg) + (textoEsp(orc.especiais) ? ' (' + esc(textoEsp(orc.especiais)) + ')' : '') +
+    (orc.itens.some(it => it.precoKg > 0) ? ' e os ✎ dos itens' : '');
   if (t.conf.n) {
     const d = t.conf.vendProd - t.conf.corretoProd;
     h += div.length
-      ? '<div class="aviso ruim"><b>' + div.length + ' de ' + t.conf.n + ' itens</b> com preço diferente do ' + kg2(cx.precoKg) +
+      ? '<div class="aviso ruim"><b>' + div.length + ' de ' + t.conf.n + ' itens</b> com preço diferente do combinado, ' + combinado +
         (t.conf.abaixo ? ' · ' + t.conf.abaixo + ' abaixo' : '') + (t.conf.acima ? ' · ' + t.conf.acima + ' acima' : '') +
         '. Vendedor ' + fR(t.conf.vendProd) + ' × correto ' + fR(t.conf.corretoProd) + ' (sem IPI): <b>' + fRs(d) + '</b> (' + fPct(d / t.conf.corretoProd) + ').</div>'
-      : '<div class="aviso bom">Os ' + t.conf.n + ' itens conferem com ' + kg2(cx.precoKg) + ' (tolerância ' + fN(+cfg.tol, 2) + '%).</div>';
+      : '<div class="aviso bom">Os ' + t.conf.n + ' itens conferem com o combinado, ' + combinado + ' (tolerância ' + fN(+cfg.tol, 2) + '%).</div>';
     h += '<p class="nota">R$/kg que o vendedor aplicou (pela gramatura da tabela):</p><div class="chips">' + gruposTxt + '</div>';
     if (div.length) h += '<div class="tabwrap" style="margin-top:10px"><table><thead><tr><th>#</th><th>Item</th><th class="num">Passou</th><th class="num">Certo</th><th class="num">Dif.</th><th class="num">No item</th><th>O que parece</th></tr></thead><tbody>' +
       div.map(({ r, i }) => {
@@ -742,7 +868,7 @@ function ligaTotalVend() {
 function textoConferencia() {
   const t = calc.t, cx = ctx(), L = [];
   L.push('*Conferência do orçamento nº ' + orc.num + (orc.cliente ? ' — ' + orc.cliente : '') + '*');
-  L.push('Preço combinado: ' + kg2(cx.precoKg) + (orc.vendNome ? ' (' + orc.vendNome + ')' : ''));
+  L.push('Preço combinado: ' + kg2(cx.precoKg) + (textoEsp(orc.especiais) ? ' · ' + textoEsp(orc.especiais) : '') + (orc.vendNome ? ' (' + orc.vendNome + ')' : ''));
   const div = calc.rs.map((r, i) => ({ r, i })).filter(x => x.r.conf && (x.r.conf.status !== 'ok' || x.r.conf.contas.length));
   if (t.conf.n) {
     if (!div.length) L.push('Os ' + t.conf.n + ' itens conferem.');
@@ -1084,11 +1210,12 @@ function renderTabela() {
     '<td><input data-vend="' + k + '" data-k="precoKg" inputmode="decimal" value="' + (v.precoKg > 0 ? esc(fVal(+v.precoKg)) : '') + '" placeholder="R$ por kg" style="width:110px"></td>' +
     '<td><input data-vend="' + k + '" data-k="fone" value="' + esc(v.fone || '') + '"></td>' +
     '<td><input data-vend="' + k + '" data-k="email" value="' + esc(v.email || '') + '"></td>' +
+    '<td class="nota" style="white-space:normal;min-width:140px" title="Para mudar: escolha o vendedor no orçamento, ajuste e clique em guardar">' + esc(textoEsp(v.especiais) || '—') + '</td>' +
     '<td><button class="del" data-delvend="' + k + '" title="Excluir vendedor">×</button></td></tr>').join('')
-    : '<tr><td colspan="5" class="vazio">Nenhum vendedor. Clique em “+ Vendedor”.</td></tr>';
+    : '<tr><td colspan="6" class="vazio">Nenhum vendedor. Clique em “+ Vendedor”.</td></tr>';
   const base = +cfg.precoBase;
   $('#tbPapeis').innerHTML = papeis().map((p, k) => {
-    const pk = base > 0 ? base + (+cfg.adicional[p.linha] || 0) : 0;
+    const pk = base > 0 ? base : 0;
     return '<tr><td><input data-pap="' + k + '" data-k="cod" value="' + esc(p.cod) + '" style="width:90px;text-transform:uppercase"></td>' +
       '<td><select data-pap="' + k + '" data-k="onda" style="width:70px">' + ['B', 'C', 'BC'].map(o => '<option' + (p.onda === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></td>' +
       '<td><input data-pap="' + k + '" data-k="g" inputmode="numeric" value="' + p.g + '" style="width:80px"></td>' +
@@ -1114,7 +1241,7 @@ function renderPapeisPreco() {
   const base = +cfg.precoBase;
   $$('#tbPapeis tr').forEach((tr, k) => {
     const p = papeis()[k]; if (!p) return;
-    const pk = base > 0 ? base + (+cfg.adicional[p.linha] || 0) : 0;
+    const pk = base > 0 ? base : 0;
     tr.querySelector('td.num').textContent = pk > 0 ? fN(p.g / 1000 * pk, 3) : '—';
   });
 }
@@ -1153,7 +1280,7 @@ $('#tbPapeis').addEventListener('change', e => {
   if (k === 'g') { const n = parseInt(el.value, 10); if (n > 0) p.g = n; el.value = p.g; }
   else if (k === 'cod') { p.cod = el.value.toUpperCase().trim(); const m = C.normCod(p.cod).match(/^(P[A-Z]?\d{2})(BC|D|B|C)?$/); p.base = m ? m[1] : p.cod; el.value = p.cod; }
   else p[k] = el.value;
-  const base = +cfg.precoBase, pk = base > 0 ? base + (+cfg.adicional[p.linha] || 0) : 0;
+  const base = +cfg.precoBase, pk = base > 0 ? base : 0;
   el.closest('tr').querySelector('td.num').textContent = pk > 0 && p.g > 0 ? fN(p.g / 1000 * pk, 3) : '—';
   salvaCfg(); tudo();
 });
