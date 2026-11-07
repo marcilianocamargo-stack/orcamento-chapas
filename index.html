@@ -327,7 +327,7 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
       <div><label>IPI (%)</label><input data-cfg="ipi" inputmode="decimal"></div>
       <div><label>Tolerância na conferência (%)</label><input data-cfg="tol" inputmode="decimal"></div>
     </div>
-    <p class="nota">Cálculo: peso = largura × comprimento × g/m² ÷ 1000; V. unit. = peso × R$/kg (arredondado no centavo); IPI sobre o total dos produtos.
+    <p class="nota">Cálculo: peso = largura × comprimento × g/m² ÷ 1000; R$/m² = g/m² ÷ 1000 × R$/kg, em reais com 2 casas; V. unit. = m² da chapa × R$/m²; IPI sobre o total dos produtos. Arredondamento pela 3ª casa: 5 ou mais sobe, menos que 5 desce.
       Preço diferente para onda B, C, dupla, branco ou um tipo de papel se põe no próprio orçamento (e fica guardado no vendedor). Diferença dentro da tolerância conta como certa.</p>
   </div>
 
@@ -512,7 +512,7 @@ function infoKg() {
   $('#rm2Info').innerHTML = p > 0 ? Array.from(usados.values()).sort((a, b) => a.cod.localeCompare(b.cod)).map(pa => {
     const pk = C.precoKgItem({}, pa, cx);
     return '<span class="tag" title="' + pa.g + ' g/m² × ' + kg2(pk.v) + ' (' + esc(pk.fonte) + ')">' + esc(pa.cod) + ' ' + pa.g + ' g' +
-      (pk.fonte !== 'geral' ? ' · ' + kg2(pk.v) : '') + ' · R$ ' + fN(pa.g / 1000 * pk.v, 3) + '/m²</span>';
+      (pk.fonte !== 'geral' ? ' · ' + kg2(pk.v) : '') + ' · R$ ' + fN(C.arred(pa.g / 1000 * pk.v, 2), 2) + '/m²</span>';
   }).join('') : '';
   renderEsp();
 }
@@ -611,7 +611,7 @@ function celulasCalc(i) {
     isFinite(r.kgUn) ? fN(r.kgUn, 3) : '',
     isFinite(r.kgTot) ? fN(r.kgTot, 1) : '',
     '|',
-    ok ? fN(r.rm2, 3) : '',
+    ok ? fN(r.rm2, 2) : '',
     ok ? fN(r.vUnit, 2) : '',
     isFinite(r.vProd) ? fN(r.vProd, 2) : ''
   ];
@@ -1236,7 +1236,7 @@ function renderTabela() {
       '<td><select data-pap="' + k + '" data-k="onda" style="width:70px">' + ['B', 'C', 'BC'].map(o => '<option' + (p.onda === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></td>' +
       '<td><input data-pap="' + k + '" data-k="g" inputmode="numeric" value="' + p.g + '" style="width:80px"></td>' +
       '<td><select data-pap="' + k + '" data-k="linha">' + Object.entries(C.LINHAS).map(([lk, lv]) => '<option value="' + lk + '"' + (p.linha === lk ? ' selected' : '') + '>' + lv + '</option>').join('') + '</select></td>' +
-      '<td class="num">' + (pk > 0 ? fN(p.g / 1000 * pk, 3) : '—') + '</td>' +
+      '<td class="num">' + (pk > 0 ? fN(C.arred(p.g / 1000 * pk, 2), 2) : '—') + '</td>' +
       '<td><button class="del" data-delpap="' + k + '" title="Tirar papel">×</button></td></tr>';
   }).join('');
 }
@@ -1258,7 +1258,7 @@ function renderPapeisPreco() {
   $$('#tbPapeis tr').forEach((tr, k) => {
     const p = papeis()[k]; if (!p) return;
     const pk = base > 0 ? base : 0;
-    tr.querySelector('td.num').textContent = pk > 0 ? fN(p.g / 1000 * pk, 3) : '—';
+    tr.querySelector('td.num').textContent = pk > 0 ? fN(C.arred(p.g / 1000 * pk, 2), 2) : '—';
   });
 }
 $('#tbVend').addEventListener('input', e => {
@@ -1297,7 +1297,7 @@ $('#tbPapeis').addEventListener('change', e => {
   else if (k === 'cod') { p.cod = el.value.toUpperCase().trim(); const m = C.normCod(p.cod).match(/^(P[A-Z]?\d{2})(BC|D|B|C)?$/); p.base = m ? m[1] : p.cod; el.value = p.cod; }
   else p[k] = el.value;
   const base = +cfg.precoBase, pk = base > 0 ? base : 0;
-  el.closest('tr').querySelector('td.num').textContent = pk > 0 && p.g > 0 ? fN(p.g / 1000 * pk, 3) : '—';
+  el.closest('tr').querySelector('td.num').textContent = pk > 0 && p.g > 0 ? fN(C.arred(p.g / 1000 * pk, 2), 2) : '—';
   salvaCfg(); tudo();
 });
 $('#tbPapeis').addEventListener('click', e => {

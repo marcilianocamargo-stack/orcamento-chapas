@@ -4,7 +4,9 @@
 
    Regra da Prime (tabela de especificação):
      peso da chapa (kg)  = largura (m) × comprimento (m) × g/m² do papel ÷ 1000
-     V. unit. (R$)       = peso × R$/kg que vale para o item (ver precoKgItem), arredondado no centavo
+     R$/m²               = g/m² ÷ 1000 × R$/kg que vale para o item (ver precoKgItem), em reais com 2 casas
+                           (pela 3ª casa: 5 ou mais sobe, menos que 5 desce)
+     V. unit. (R$)       = m² da chapa × R$/m², arredondado no centavo do mesmo jeito
      V. produtos         = V. unit. × quantidade
      IPI                 = V. produtos × 3,25%   (arredondado no centavo)
      V. total            = V. produtos + IPI
@@ -181,8 +183,8 @@ function calcItem(it, ctx) {
   else if (r.papel && r.m2) {
     r.precoKg = pk.v;
     r.kgUn = r.m2 * r.papel.g / 1000;
-    r.rm2 = r.papel.g / 1000 * r.precoKg;
-    r.vUnitExato = r.kgUn * r.precoKg;
+    r.rm2 = arred(r.papel.g / 1000 * r.precoKg, 2);   // preço do m² em reais (2 casas)
+    r.vUnitExato = r.m2 * r.rm2;
     r.vUnit = arred(r.vUnitExato, 2);
     if (q > 0) {
       r.m2Tot = r.m2 * q;
