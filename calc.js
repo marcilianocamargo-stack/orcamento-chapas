@@ -4,9 +4,11 @@
 
    Regra da Prime (tabela de especificação):
      peso da chapa (kg)  = largura (m) × comprimento (m) × g/m² do papel ÷ 1000
-     R$/m²               = g/m² ÷ 1000 × R$/kg que vale para o item (ver precoKgItem), em reais com 2 casas
-                           (pela 3ª casa: 5 ou mais sobe, menos que 5 desce)
-     V. unit. (R$)       = m² da chapa × R$/m², arredondado no centavo do mesmo jeito
+     R$/m² (ver precoM2):
+       • no preço de tabela (R$/kg geral = preço de tabela e nenhum preço diferente no item):
+         o R$/m² impresso na Tabela de especificação (importado da planilha; fica no navegador)
+       • com qualquer outro preço: g/m² ÷ 1000 × R$/kg, arredondado SEMPRE PARA CIMA no centavo
+     V. unit. (R$)       = m² da chapa × R$/m², arredondado no centavo (5 ou mais sobe)
      V. produtos         = V. unit. × quantidade
      IPI                 = V. produtos × 3,25%   (arredondado no centavo)
      V. total            = V. produtos + IPI
@@ -40,6 +42,8 @@ function arred(v, casas) {
   const f = Math.pow(10, casas == null ? 2 : casas);
   return Math.round((v + Math.sign(v) * 1e-9) * f) / f;   // 5 na casa seguinte sobe (como o ROUND do Excel)
 }
+/* sempre para cima no centavo (2,0801 → 2,09); conta exata fica igual (2,08 → 2,08) */
+const sobeCentavo = v => isFinite(v) ? Math.ceil(v * 100 - 1e-6) / 100 : v;
 const fmtN = (v, casas) => isFinite(v) ? v.toLocaleString('pt-BR',
   { minimumFractionDigits: casas, maximumFractionDigits: casas }) : '—';
 const fmtR = (v, casas) => isFinite(v) ? 'R$ ' + fmtN(v, casas == null ? 2 : casas) : '—';
@@ -158,6 +162,18 @@ function precoKgItem(it, papel, ctx) {
   }
   return { v: +ctx.precoKg || 0, fonte: 'geral' };
 }
+/* R$/m² do papel. pk = resultado de precoKgItem. ctx.tabelaM2 = { 'P25B': 2.15, ... } (da planilha da tabela).
+   Preço de tabela só quando o item está no preço geral e o geral é o preço de tabela. */
+function precoM2(papel, pk, ctx) {
+  if (!papel || !(pk.v > 0)) return { v: NaN, tabela: false };
+  const tab = ctx.tabelaM2 || {};
+  const naTabela = pk.fonte === 'geral' && ctx.precoBase > 0 && Math.abs(pk.v - ctx.precoBase) < 1e-9;
+  if (naTabela) {
+    const k = Object.keys(tab).find(c => normCod(c) === normCod(papel.cod));
+    if (k && tab[k] > 0) return { v: +tab[k], tabela: true };
+  }
+  return { v: sobeCentavo(papel.g / 1000 * pk.v), tabela: false };
+}
 function calcItem(it, ctx) {
   const r = { erros: [], avisos: [] };
   const q = Number(it.qtde), L = Number(it.larg), C = Number(it.compr);
@@ -183,7 +199,10 @@ function calcItem(it, ctx) {
   else if (r.papel && r.m2) {
     r.precoKg = pk.v;
     r.kgUn = r.m2 * r.papel.g / 1000;
-    r.rm2 = arred(r.papel.g / 1000 * r.precoKg, 2);   // preço do m² em reais (2 casas)
+    const pm = precoM2(r.papel, pk, ctx);
+    r.rm2 = pm.v;                                      // preço do m² em reais (2 casas)
+    r.tabela = pm.tabela;
+    if (pm.tabela) r.fontePreco = 'tabela';
     r.vUnitExato = r.m2 * r.rm2;
     r.vUnit = arred(r.vUnitExato, 2);
     if (q > 0) {
@@ -194,6 +213,8 @@ function calcItem(it, ctx) {
       r.vTot = arred(r.vProd + r.vIpi, 2);
     }
     if (r.papel.linha === 'kraft') r.avisos.push('papel kraft: na tabela o preço é "COTAR"');
+    if (r.papel.linha === 'branca' && pk.fonte === 'geral' && !pm.tabela)
+      r.avisos.push('papel branco no preço geral (' + fmtR(pk.v) + '/kg) — o branco costuma ser mais caro: confira o campo Branco');
   }
   conferir(it, r, ctx);
   r.ok = !r.erros.length && isFinite(r.vProd);
@@ -541,7 +562,50 @@ function normalizaPapel(it, papeis) {
   return it;
 }
 
-const api = { LINHAS, PAPEIS_PADRAO, LIMITES, CAMPOS, ORDEM_COLAGEM, NOME_ONDA, precoKgItem, semAcento, normCod, arred, fmtN, fmtR, fmtMM,
+/* Lê a planilha "Tabela de especificação Prime preço.xlsx" (XML da aba + sharedStrings).
+   Layout da planilha: A = produto (P25, PW40, P50D…), D = g/m² onda B (ou da dupla), F = R$/m² onda B (ou da dupla),
+   G = g/m² onda C, J = R$/m² onda C. "COTAR" no lugar do preço = sem preço de tabela. */
+function lerTabelaEspecificacao(sheetXml, ssXml) {
+  const desfaz = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  const ss = [];
+  String(ssXml || '').replace(/<si>([\s\S]*?)<\/si>/g, (m0, si) => {
+    ss.push(desfaz(si.replace(/<rPh[\s\S]*?<\/rPh>/g, '').replace(/<[^>]+>/g, '')));
+    return '';
+  });
+  const linhas = {};
+  String(sheetXml || '').replace(/<c r="([A-Z]+)(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, (m0, col, lin, attrs, corpo) => {
+    if (!corpo) return '';
+    const t = (attrs.match(/\bt="(\w+)"/) || [])[1];
+    let v = (corpo.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+    if (t === 's') v = ss[+v];
+    else if (t === 'inlineStr') v = desfaz((corpo.match(/<t[^>]*>([\s\S]*?)<\/t>/) || [])[1] || '');
+    else if (t === 'str') v = v == null ? v : desfaz(v);
+    else if (v != null) v = +v;
+    if (v == null || v === '') return '';
+    (linhas[lin] = linhas[lin] || {})[col] = v;
+    return '';
+  });
+  const precos = {}, gram = {}, cotar = [];
+  const num = x => typeof x === 'number' && isFinite(x);
+  Object.values(linhas).forEach(l => {
+    const cod = normCod(l.A || '');
+    const m = cod.match(/^(P[A-Z]?\d{2})(D|B)?$/);      // "PK40B" na planilha = linha do PK40 (onda B e C)
+    if (!m) return;
+    if (m[2] === 'D') {
+      if (num(l.D)) gram[cod] = l.D;
+      if (num(l.F)) precos[cod] = arred(l.F, 2); else if (l.F) cotar.push(cod);
+    } else {
+      const b = m[1];
+      if (num(l.D)) gram[b + 'B'] = l.D;
+      if (num(l.G)) gram[b + 'C'] = l.G;
+      if (num(l.F)) precos[b + 'B'] = arred(l.F, 2); else if (l.F) cotar.push(b + 'B');
+      if (num(l.J)) precos[b + 'C'] = arred(l.J, 2); else if (l.J) cotar.push(b + 'C');
+    }
+  });
+  return { precos, gram, cotar };
+}
+
+const api = { LINHAS, PAPEIS_PADRAO, LIMITES, CAMPOS, ORDEM_COLAGEM, NOME_ONDA, precoKgItem, precoM2, sobeCentavo, lerTabelaEspecificacao, semAcento, normCod, arred, fmtN, fmtR, fmtMM,
   numBR, paraMM, lerDim, lerMedida, lerVincos, normOnda, achaPapel, calcItem, calcOrcamento, lerTSV,
   analisaColagem, montaItens, normalizaPapel, campoDoCabecalho, tipoValor, lerDadosPedido };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else raiz.Calc = api;

@@ -327,7 +327,9 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
       <div><label>IPI (%)</label><input data-cfg="ipi" inputmode="decimal"></div>
       <div><label>Tolerância na conferência (%)</label><input data-cfg="tol" inputmode="decimal"></div>
     </div>
-    <p class="nota">Cálculo: peso = largura × comprimento × g/m² ÷ 1000; R$/m² = g/m² ÷ 1000 × R$/kg, em reais com 2 casas; V. unit. = m² da chapa × R$/m²; IPI sobre o total dos produtos. Arredondamento pela 3ª casa: 5 ou mais sobe, menos que 5 desce.
+    <p class="nota">Cálculo: peso = largura × comprimento × g/m² ÷ 1000. <b>No preço de tabela</b> o R$/m² é o da Tabela de especificação (coluna abaixo, em Papéis).
+      <b>Com outro preço</b> (vendedor, onda, branco, papel ou lápis do item): R$/m² = g/m² ÷ 1000 × R$/kg, arredondado sempre para cima no centavo.
+      V. unit. = m² da chapa × R$/m² (no centavo, 5 ou mais sobe); IPI sobre o total dos produtos.
       Preço diferente para onda B, C, dupla, branco ou um tipo de papel se põe no próprio orçamento (e fica guardado no vendedor). Diferença dentro da tolerância conta como certa.</p>
   </div>
 
@@ -342,13 +344,17 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
   <div class="card">
     <div class="cardtop"><h2>Papéis (g/m²)</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn mini" id="btnImportaTabela">Importar a Tabela de especificação (.xlsx)</button>
+        <input type="file" id="arqTabela" accept=".xlsx" hidden>
         <button class="btn mini sec" id="btnConfProg">Conferir com a Programação</button>
         <button class="btn mini sec" id="btnAddPapel">+ Papel</button>
         <button class="btn mini sec" id="btnPapelPadrao">Restaurar padrão</button>
       </div></div>
-    <p class="nota">Gramaturas da Tabela de Especificação Prime. <span id="progStatus"></span></p>
+    <p class="nota">Gramaturas e R$/m² da Tabela de especificação Prime. O R$/m² da tabela vale quando o orçamento está no preço de tabela; importe a planilha "Tabela de especificação Prime preço.xlsx" (ou digite). Fica só neste navegador.</p>
+    <p class="nota" id="tabelaStatus"></p>
+    <p class="nota"><span id="progStatus"></span></p>
     <div class="tabwrap rolagem"><table>
-      <thead><tr><th>Código</th><th>Onda</th><th>g/m²</th><th>Linha</th><th class="num">R$/m² na tabela</th><th></th></tr></thead>
+      <thead><tr><th>Código</th><th>Onda</th><th>g/m²</th><th>Linha</th><th class="num">R$/m² da tabela</th><th></th></tr></thead>
       <tbody id="tbPapeis"></tbody>
     </table></div>
   </div>
@@ -419,7 +425,7 @@ function novoOrc() {
 const papeis = () => cfg.papeis || C.PAPEIS_PADRAO;
 const ctx = () => ({ precoKg: +orc.precoKg || 0, ipi: (+cfg.ipi || 0) / 100, tol: (+cfg.tol || 0) / 100,
   especiais: orc.especiais || {}, papeis: papeis(), limites: cfg.limites, precoBase: +cfg.precoBase || 0,
-  vendedores: cfg.vendedores });
+  vendedores: cfg.vendedores, tabelaM2: cfg.tabelaM2 || {} });
 const salvaCfg = () => grava(K_CFG, cfg);
 function salvaOrc(alterou) { if (alterou !== false) orc.alterado = true; grava(K_ATUAL, orc); }
 const recalc = () => { calc = C.calcOrcamento(orc, ctx()); };
@@ -510,9 +516,9 @@ function infoKg() {
   const cx = ctx(), usados = new Map();
   (calc ? calc.rs : []).forEach(r => { if (r.papel) usados.set(r.papel.cod, r.papel); });
   $('#rm2Info').innerHTML = p > 0 ? Array.from(usados.values()).sort((a, b) => a.cod.localeCompare(b.cod)).map(pa => {
-    const pk = C.precoKgItem({}, pa, cx);
-    return '<span class="tag" title="' + pa.g + ' g/m² × ' + kg2(pk.v) + ' (' + esc(pk.fonte) + ')">' + esc(pa.cod) + ' ' + pa.g + ' g' +
-      (pk.fonte !== 'geral' ? ' · ' + kg2(pk.v) : '') + ' · R$ ' + fN(C.arred(pa.g / 1000 * pk.v, 2), 2) + '/m²</span>';
+    const pk = C.precoKgItem({}, pa, cx), pm = C.precoM2(pa, pk, cx);
+    return '<span class="tag" title="' + esc(pm.tabela ? 'R$/m² da Tabela de especificação' : pa.g + ' g/m² × ' + kg2(pk.v) + ' (' + pk.fonte + '), centavo para cima') + '">' + esc(pa.cod) + ' ' + pa.g + ' g' +
+      (pk.fonte !== 'geral' ? ' · ' + kg2(pk.v) : '') + ' · R$ ' + fN(pm.v, 2) + '/m²' + (pm.tabela ? ' (tabela)' : '') + '</span>';
   }).join('') : '';
   renderEsp();
 }
@@ -618,8 +624,10 @@ function celulasCalc(i) {
 }
 /* R$/kg do item: em branco vale o do papel/onda/branco/geral (aparece apagado); o lápis põe um preço só deste item */
 function herdadoPkg(i) {
-  const r = calc.rs[i];
-  return C.precoKgItem({}, r.papel, ctx());
+  const r = calc.rs[i], cx = ctx();
+  const h = C.precoKgItem({}, r.papel, cx);
+  if (r.papel && C.precoM2(r.papel, h, cx).tabela) h.fonte = 'preço de tabela (R$ ' + fN(C.precoM2(r.papel, h, cx).v, 2) + '/m²)';
+  return h;
 }
 function htmlPkg(i) {
   const it = orc.itens[i], h = herdadoPkg(i), esp = it.precoKg > 0;
@@ -921,9 +929,10 @@ $$('[data-orc]').forEach(el => el.addEventListener('input', () => { orc[el.datas
 
 function renderBanner() {
   const b = $('#bannerInicio');
+  const semTabela = !Object.keys(cfg.tabelaM2 || {}).length;
   b.innerHTML = !(+cfg.precoBase > 0) && !cfg.vendedores.length
-    ? '<div class="aviso atencao" style="margin:0 0 12px">Primeira vez neste navegador: informe o <b>preço de tabela por kg</b> e os vendedores com o R$/kg combinado de cada um na aba <button class="linkbtn" id="btnIrTabela">Tabela</button>. Os preços ficam guardados só aqui (não vão para o GitHub).</div>'
-    : '';
+    ? '<div class="aviso atencao" style="margin:0 0 12px">Primeira vez neste navegador: na aba <button class="linkbtn" id="btnIrTabela">Tabela</button> informe o <b>preço de tabela por kg</b>, importe a planilha <b>Tabela de especificação</b> (R$/m² de cada papel) e cadastre os vendedores com o R$/kg de cada um. Os preços ficam guardados só aqui (não vão para o GitHub).</div>'
+    : (semTabela ? '<div class="aviso atencao" style="margin:0 0 12px">Falta importar a planilha <b>Tabela de especificação</b> (R$/m² de cada papel no preço de tabela) na aba <button class="linkbtn" id="btnIrTabela">Tabela</button>. Sem ela, o preço de tabela é calculado por g/m² × R$/kg.</div>' : '');
   const ir = $('#btnIrTabela'); if (ir) ir.addEventListener('click', () => trocaAba('Tabela'));
 }
 
@@ -1236,9 +1245,10 @@ function renderTabela() {
       '<td><select data-pap="' + k + '" data-k="onda" style="width:70px">' + ['B', 'C', 'BC'].map(o => '<option' + (p.onda === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></td>' +
       '<td><input data-pap="' + k + '" data-k="g" inputmode="numeric" value="' + p.g + '" style="width:80px"></td>' +
       '<td><select data-pap="' + k + '" data-k="linha">' + Object.entries(C.LINHAS).map(([lk, lv]) => '<option value="' + lk + '"' + (p.linha === lk ? ' selected' : '') + '>' + lv + '</option>').join('') + '</select></td>' +
-      '<td class="num">' + (pk > 0 ? fN(C.arred(p.g / 1000 * pk, 2), 2) : '—') + '</td>' +
+      '<td class="num"><input data-pap="' + k + '" data-k="tabM2" inputmode="decimal" value="' + esc(tabM2(p.cod) > 0 ? fVal(tabM2(p.cod)) : '') + '" placeholder="' + (p.linha === 'kraft' ? 'cotar' : '—') + '" style="width:80px;text-align:right"></td>' +
       '<td><button class="del" data-delpap="' + k + '" title="Tirar papel">×</button></td></tr>';
   }).join('');
+  renderTabelaStatus();
 }
 $$('[data-cfg]').forEach(el => el.addEventListener('input', () => {
   const c = el.dataset.cfg;
@@ -1253,13 +1263,14 @@ $$('[data-cfg]').forEach(el => el.addEventListener('change', () => {
   renderPapeisPreco(); tudo();
 }));
 /* só a coluna R$/m² dos papéis (sem redesenhar os campos) */
-function renderPapeisPreco() {
-  const base = +cfg.precoBase;
-  $$('#tbPapeis tr').forEach((tr, k) => {
-    const p = papeis()[k]; if (!p) return;
-    const pk = base > 0 ? base : 0;
-    tr.querySelector('td.num').textContent = pk > 0 ? fN(C.arred(p.g / 1000 * pk, 2), 2) : '—';
-  });
+function renderPapeisPreco() { renderTabelaStatus(); }
+function tabM2(cod) { const t = cfg.tabelaM2 || {}; const k = Object.keys(t).find(c => C.normCod(c) === C.normCod(cod)); return k ? +t[k] : 0; }
+function renderTabelaStatus() {
+  const t = cfg.tabelaM2 || {}, n = Object.keys(t).filter(c => t[c] > 0).length, info = cfg.tabelaInfo || {};
+  $('#tabelaStatus').innerHTML = n
+    ? '<span class="st-ok">✓ ' + n + ' preços de tabela por m²</span>' + (info.arquivo ? ' · importados de ' + esc(info.arquivo) + (info.em ? ' em ' + esc(new Date(info.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '') : '') +
+      (+cfg.precoBase > 0 ? ' · valem quando o R$/kg geral é ' + kg2(+cfg.precoBase) : ' · <span class="m-erro">informe o preço de tabela (R$/kg) acima</span>')
+    : '<span class="m-aviso">Ainda sem os R$/m² da tabela: importe a planilha. Até lá, o preço de tabela também é calculado por g/m² × R$/kg (centavo para cima).</span>';
 }
 $('#tbVend').addEventListener('input', e => {
   const el = e.target.closest('[data-vend]'); if (!el) return;
@@ -1292,12 +1303,19 @@ $('#btnAddVend').addEventListener('click', () => {
 function editaPapeis() { if (!cfg.papeis) cfg.papeis = JSON.parse(JSON.stringify(C.PAPEIS_PADRAO)); return cfg.papeis; }
 $('#tbPapeis').addEventListener('change', e => {
   const el = e.target.closest('[data-pap]'); if (!el) return;
+  if (el.dataset.k === 'tabM2') {
+    const p = papeis()[+el.dataset.pap];
+    const v = C.numBR(el.value, 'un');
+    cfg.tabelaM2 = cfg.tabelaM2 || {};
+    Object.keys(cfg.tabelaM2).forEach(c => { if (C.normCod(c) === C.normCod(p.cod)) delete cfg.tabelaM2[c]; });
+    if (isFinite(v) && v > 0) cfg.tabelaM2[p.cod] = C.arred(v, 2);
+    el.value = tabM2(p.cod) > 0 ? fVal(tabM2(p.cod)) : '';
+    salvaCfg(); renderTabelaStatus(); tudo(); return;
+  }
   const p = editaPapeis()[+el.dataset.pap], k = el.dataset.k;
   if (k === 'g') { const n = parseInt(el.value, 10); if (n > 0) p.g = n; el.value = p.g; }
   else if (k === 'cod') { p.cod = el.value.toUpperCase().trim(); const m = C.normCod(p.cod).match(/^(P[A-Z]?\d{2})(BC|D|B|C)?$/); p.base = m ? m[1] : p.cod; el.value = p.cod; }
   else p[k] = el.value;
-  const base = +cfg.precoBase, pk = base > 0 ? base : 0;
-  el.closest('tr').querySelector('td.num').textContent = pk > 0 && p.g > 0 ? fN(C.arred(p.g / 1000 * pk, 2), 2) : '—';
   salvaCfg(); tudo();
 });
 $('#tbPapeis').addEventListener('click', e => {
@@ -1342,6 +1360,35 @@ async function conferirProgramacao() {
   }
 }
 $('#btnConfProg').addEventListener('click', conferirProgramacao);
+/* importa os R$/m² (e confere as gramaturas) da planilha "Tabela de especificação Prime preço.xlsx" */
+$('#btnImportaTabela').addEventListener('click', () => $('#arqTabela').click());
+$('#arqTabela').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  e.target.value = '';
+  try {
+    if (typeof JSZip === 'undefined') throw new Error('biblioteca JSZip não carregou (sem internet?)');
+    const zip = await JSZip.loadAsync(await f.arrayBuffer());
+    const ssArq = zip.file('xl/sharedStrings.xml');
+    const ss = ssArq ? await ssArq.async('string') : '';
+    const abas = Object.keys(zip.files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort((a, b) => parseInt(a.replace(/\D/g, ''), 10) - parseInt(b.replace(/\D/g, ''), 10));
+    let lido = null;
+    for (const n of abas) {
+      const t = C.lerTabelaEspecificacao(await zip.file(n).async('string'), ss);
+      if (Object.keys(t.precos).length) { lido = t; break; }
+    }
+    if (!lido) throw new Error('não achei os preços (colunas Produto, Gr/m² e Preço m²) nessa planilha');
+    const dif = [];
+    papeis().forEach(p => { const g = lido.gram[p.cod]; if (g != null && g !== p.g) dif.push(p.cod + ': app ' + p.g + ', planilha ' + g); });
+    const n = Object.keys(lido.precos).length;
+    if (!confirm('Importar ' + n + ' preços por m² da planilha "' + f.name + '"?\n\nEx.: ' +
+      Object.entries(lido.precos).slice(0, 4).map(([c, v]) => c + ' R$ ' + fN(v, 2)).join(' · ') +
+      (dif.length ? '\n\nAtenção, gramatura diferente: ' + dif.join('; ') : '\n\nGramaturas iguais às do app.'))) return;
+    cfg.tabelaM2 = lido.precos;
+    cfg.tabelaInfo = { arquivo: f.name, em: new Date().toISOString() };
+    salvaCfg(); renderTabela(); tudo();
+    toast(n + ' preços de tabela importados' + (dif.length ? ' — ' + dif.length + ' gramatura(s) diferente(s), confira' : ''), dif.length ? 'ruim' : '', 6000);
+  } catch (err) { toast('Não consegui ler a planilha: ' + err.message, 'ruim', 6000); }
+});
 
 /* ---------- backup ---------- */
 $('#btnBackup').addEventListener('click', () => {

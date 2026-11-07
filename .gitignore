@@ -1,3 +1,5 @@
 # testes locais: usam pedidos reais de cliente e preços combinados (não publicar — o repositório é público)
 teste.js
 teste-*.tsv
+teste-*.xml
+teste-*.xlsx
