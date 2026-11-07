@@ -1,6 +1,6 @@
 /* Orçamento de Chapas Prime — service worker
    Para forçar atualização nos aparelhos: mude o número da versão e faça o commit. */
-const VERSAO = 'orcamento-chapas-v4';
+const VERSAO = 'orcamento-chapas-v5';
 const ARQUIVOS = ['.', 'index.html', 'calc.js', 'excel.js', 'modelo-orcamento.xlsx', 'manifest.json', 'icon.svg', 'icon-maskable.svg'];
 
 self.addEventListener('install', e => {
