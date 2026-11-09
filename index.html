@@ -8,8 +8,8 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="calc.js?v=9"></script>
-<script src="excel.js?v=9"></script>
+<script src="calc.js?v=10"></script>
+<script src="excel.js?v=10"></script>
 <style>
 /* Padrão visual dos apps da Prime (igual à Consulta de Estoque): azul #1a56a0 e branco */
 :root{
@@ -81,10 +81,12 @@ tbody tr:hover td{background:#f7fafd}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 td.calc{color:var(--kraft);font-weight:600}
 td input,td select{padding:5px 7px;font-size:13.5px;border-radius:6px;border-width:1.5px}
-#tbItens td.in input{min-width:56px}
-#tbItens td.in.qtde input{width:74px}#tbItens td.in.larg input,#tbItens td.in.compr input{width:70px}
-#tbItens td.in.papel input{width:76px;text-transform:uppercase}#tbItens td.in.vincos input{width:150px}
-#tbItens td.in.vend input{width:96px;text-align:right}
+#tbItens{font-size:13px}
+#tbItens th{white-space:normal;line-height:1.2;vertical-align:bottom;padding:8px 4px}
+#tbItens td{padding:4px}
+#tbItens td.in input{min-width:0;padding:4px 5px;font-size:13px}
+#tbItens td.in.qtde input{width:60px}#tbItens td.in.larg input,#tbItens td.in.compr input{width:54px}
+#tbItens td.in.papel input{width:62px;text-transform:uppercase}#tbItens td.in.vincos input{width:154px}
 #tbItens tr.item.erro td:first-child{box-shadow:inset 4px 0 var(--alerta)}
 #tbItens tr.item.aviso td:first-child{box-shadow:inset 4px 0 #e0a526}
 #tbItens tr.item.ruim td:first-child{box-shadow:inset 4px 0 var(--alerta)}
@@ -119,7 +121,7 @@ input.usado{background:#fff;border-color:var(--kraft);color:var(--kraft);font-we
 .tag.usado .del{color:#fff}
 .tag .del{font-size:14px;padding:0 2px}
 #tbItens td.in.pkg{white-space:nowrap}
-#tbItens td.in.pkg input{width:64px;text-align:right;border-color:transparent;background:transparent;color:var(--kraft);font-weight:600}
+#tbItens td.in.pkg input{width:48px;text-align:right;border-color:transparent;background:transparent;color:var(--kraft);font-weight:600}
 #tbItens td.in.pkg input:hover,#tbItens td.in.pkg input:focus{border-color:var(--borda);background:#fff}
 #tbItens td.in.pkg.esp input{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:800}
 #tbItens td.in.pkg input::placeholder{color:var(--tinta3);opacity:1;font-weight:500}
@@ -242,6 +244,13 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
     <div class="acoes" style="margin-top:8px">
       <label class="inline">Preencher a partir do item <input id="inIni" type="number" min="1" value="1" style="width:72px"></label>
       <button class="btn mini sec" id="btnLimpaCampos">Limpar campos</button>
+      <label class="inline" title="Só para a conferência: diz o que é o número colado no campo do vendedor">Preço do vendedor está em
+        <select id="selVendModo" style="width:auto;padding:5px 8px">
+          <option value="un">R$ por chapa</option>
+          <option value="m2">R$ por m²</option>
+          <option value="tot">total do item s/ IPI</option>
+          <option value="totipi">total do item c/ IPI</option>
+        </select></label>
       <span id="colunasResumo" class="nota" style="margin:0"></span>
     </div>
     <details id="detVarias" style="margin-top:12px">
@@ -252,23 +261,13 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
   </div>
 
   <div class="card">
-    <div class="cardtop"><h2>Itens</h2>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="nota" style="margin:0" title="Só para a conferência: diz o que é o número que você colou na coluna Vendedor">Preço que o vendedor passou está em</span>
-        <select id="selVendModo" style="width:auto;padding:5px 8px">
-          <option value="un">R$ por chapa</option>
-          <option value="m2">R$ por m²</option>
-          <option value="tot">total do item s/ IPI</option>
-          <option value="totipi">total do item c/ IPI</option>
-        </select>
-      </div>
-    </div>
+    <div class="cardtop"><h2>Itens</h2></div>
     <div class="tabwrap"><table id="tbItens">
       <thead><tr>
-        <th>#</th><th>Quant.</th><th>Largura</th><th>Compr.</th><th>Papel</th><th>Vincos</th>
+        <th>#</th><th>Quant.</th><th>Larg.</th><th>Compr.</th><th>Papel</th><th>Vincos</th>
         <th class="num">g/m²</th><th class="num">m²/ch.</th><th class="num">kg/ch.</th><th class="num">kg total</th>
         <th class="num" title="R$ por kg de cada item. O lápis dá um preço só para aquele item">R$/kg ✎</th><th class="num">R$/m²</th><th class="num">V. unit.</th><th class="num">V. produtos</th>
-        <th class="num" title="Preço que o vendedor passou">Vendedor</th><th class="num">Dif.</th><th></th>
+        <th class="num">V. total c/ IPI</th><th class="num" title="Diferença do preço que o vendedor passou">Dif.</th><th></th>
       </tr></thead>
       <tbody id="tbCorpo"></tbody>
       <tfoot id="tbPe"></tfoot>
@@ -619,7 +618,8 @@ function celulasCalc(i) {
     '|',
     ok ? fN(r.rm2, 2) : '',
     ok ? fN(r.vUnit, 2) : '',
-    isFinite(r.vProd) ? fN(r.vProd, 2) : ''
+    isFinite(r.vProd) ? fN(r.vProd, 2) : '',
+    isFinite(r.vTot) ? fN(r.vTot, 2) : ''
   ];
 }
 /* R$/kg do item: em branco vale o do papel/onda/branco/geral (aparece apagado); o lápis põe um preço só deste item */
@@ -685,18 +685,11 @@ function renderItens() {
       CAMPOS_TAB.map(c => '<td class="in ' + c + '"><input data-i="' + i + '" data-campo="' + c + '" value="' + esc(valorCampo(it, c)) + '"' +
         (c === 'papel' || c === 'vincos' ? '' : ' inputmode="decimal"') + ' autocomplete="off" spellcheck="false"></td>').join('') +
       celulasCalc(i).map(h => h === '|' ? htmlPkg(i) : '<td class="num calc">' + h + '</td>').join('') +
-      '<td class="in vend"><input data-i="' + i + '" data-campo="vend" value="' + esc(valorCampo(it, 'vend')) + '" inputmode="decimal" autocomplete="off" placeholder="' +
-      esc(placeholderVend(it)) + '"></td>' +
       '<td class="num difc">' + htmlDif(r) + '</td>' +
       '<td><button class="del" data-del="' + i + '" title="Tirar o item">×</button></td></tr>' +
       '<tr class="msg" data-msg="' + i + '"' + (msg ? '' : ' hidden') + '><td colspan="17">' + msg + '</td></tr>';
   }).join('');
   renderPe();
-}
-function placeholderVend(it) {
-  for (const [modo, k] of Object.entries(VEND_CAMPO)) if (modo !== orc.vendModo && it[k] > 0)
-    return ({ un: 'un ', m2: 'm² ', tot: 'tot ', totipi: 'c/IPI ' })[modo] + fVal(+it[k]);
-  return '';
 }
 function renderPe() {
   const t = calc.t;
@@ -704,7 +697,7 @@ function renderPe() {
   $('#tbPe').innerHTML = '<tr><td></td><td class="num">' + fN(t.chapas, 0) + '</td><td colspan="5" class="nota" style="font-weight:500">' +
     t.itens + ' ite' + (t.itens === 1 ? 'm' : 'ns') + (t.erros ? ' · <span class="m-erro">' + t.erros + ' com problema</span>' : '') + '</td>' +
     '<td class="num">' + fN(t.m2, 2) + ' m²</td><td></td><td class="num">' + fN(t.kg, 1) + '</td><td></td><td></td><td></td>' +
-    '<td class="num">' + fN(t.vProd, 2) + '</td><td class="num">' + (temConf ? fN(t.conf.vendProd, 2) : '') + '</td>' +
+    '<td class="num">' + fN(t.vProd, 2) + '</td><td class="num">' + fN(t.vTot, 2) + '</td>' +
     '<td class="num">' + (temConf ? '<span class="dif ' + (Math.abs(t.conf.vendProd - t.conf.corretoProd) < 0.02 ? 'st-ok' : (t.conf.vendProd < t.conf.corretoProd ? 'st-abaixo' : 'st-acima')) + '">' +
       fPct((t.conf.vendProd - t.conf.corretoProd) / t.conf.corretoProd) + '</span>' : '') + '</td><td></td></tr>';
 }
@@ -826,8 +819,8 @@ function renderConf() {
     el.hidden = true;
     if (!orc.itens.length) return;
     el.hidden = false;
-    el.innerHTML = '<h2>Conferência do vendedor</h2><p class="nota">Para conferir, cole (ou digite na coluna “Vendedor”) o preço que o vendedor passou. ' +
-      'Pode ser por chapa, por m² ou o total do item — escolha acima da tabela. Ou informe só o total do orçamento:</p>' + htmlTotalVend();
+    el.innerHTML = '<h2>Conferência do vendedor</h2><p class="nota">Para conferir, cole no campo do vendedor (quadro “Colar do Excel”) o preço que o vendedor passou. ' +
+      'Pode ser por chapa, por m² ou o total do item — escolha ao lado de “Limpar campos”. Ou informe só o total do orçamento:</p>' + htmlTotalVend();
     ligaTotalVend(); return;
   }
   el.hidden = false;
