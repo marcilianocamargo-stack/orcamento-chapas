@@ -309,7 +309,7 @@ const CAMPOS = {
   vUn: 'Vendedor: R$ por chapa', vM2: 'Vendedor: R$ por m²', vTot: 'Vendedor: total s/ IPI', vTotIpi: 'Vendedor: total c/ IPI'
 };
 /* ordem em que o Marciliano costuma colar coluna por coluna */
-const ORDEM_COLAGEM = ['larg', 'compr', 'qtde', 'papel', 'vincos', 'vUn'];
+const ORDEM_COLAGEM = ['papel', 'qtde', 'larg', 'compr', 'vincos', 'vUn'];
 
 function lerTSV(txt, opc) {
   opc = opc || {};

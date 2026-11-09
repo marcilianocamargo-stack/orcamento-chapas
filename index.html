@@ -8,8 +8,8 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="calc.js?v=10"></script>
-<script src="excel.js?v=10"></script>
+<script src="calc.js?v=11"></script>
+<script src="excel.js?v=11"></script>
 <style>
 /* Padrão visual dos apps da Prime (igual à Consulta de Estoque): azul #1a56a0 e branco */
 :root{
@@ -131,6 +131,10 @@ input.usado{background:#fff;border-color:var(--kraft);color:var(--kraft);font-we
 /* colagem */
 .colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:6px}
 .colcampo label{margin:4px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.colcampo .cab{display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0}
+.colcampo .cab label.junta{display:flex;align-items:center;gap:4px;text-transform:none;letter-spacing:0;font-size:11.5px;
+  font-weight:600;color:var(--kraft);cursor:pointer;flex-shrink:0;overflow:visible}
+.colcampo .cab label.junta input{width:auto;margin:0}
 .colcampo textarea{font-size:13px;padding:7px 9px;line-height:1.5;resize:vertical}
 .colcampo.cheio textarea{border-color:var(--kraft);background:#fff}
 .colcampo.ruim textarea{border-color:var(--alerta);background:#fffafa}
@@ -233,13 +237,13 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
     <div class="cardtop"><h2>Colar do Excel</h2>
       <span class="nota" style="margin:0">Copie a coluna inteira no Excel e cole no campo dela. Pode colar em vários campos: eles se juntam linha a linha nos itens.</span></div>
     <div class="colunas" id="colunas">
-      <div class="colcampo" data-campo="qtde"><label>Quantidade</label><textarea rows="7" spellcheck="false" placeholder="1630&#10;480&#10;…"></textarea><div class="st"></div></div>
-      <div class="colcampo" data-campo="papel"><label>Tipo de papel</label><textarea rows="7" spellcheck="false" placeholder="P50D&#10;P25B&#10;…"></textarea><div class="st"></div></div>
-      <div class="colcampo" data-campo="larg"><label>Largura</label><textarea rows="7" spellcheck="false" placeholder="1,180 ou 1180&#10;…"></textarea><div class="st"></div></div>
-      <div class="colcampo" data-campo="compr"><label>Comprimento</label><textarea rows="7" spellcheck="false" placeholder="2,590 ou 2590&#10;…"></textarea><div class="st"></div></div>
-      <div class="colcampo" data-campo="medida"><label>Medida junta (L x C)</label><textarea rows="7" spellcheck="false" placeholder="796x2380&#10;796 X 2380&#10;…"></textarea><div class="st"></div></div>
-      <div class="colcampo" data-campo="vincos"><label>Vincos</label><textarea rows="7" spellcheck="false" placeholder="118X560X118&#10;…"></textarea><div class="st"></div></div>
-      <div class="colcampo" data-campo="vend"><label id="lblColVend">Preço do vendedor</label><textarea rows="7" spellcheck="false" placeholder="6,63&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="papel"><div class="cab"><label>Tipo de papel</label></div><textarea rows="7" spellcheck="false" placeholder="P50D&#10;P25B&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="qtde"><div class="cab"><label>Quantidade</label></div><textarea rows="7" spellcheck="false" placeholder="1630&#10;480&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="larg"><div class="cab"><label>Largura</label><label class="junta" title="Marque quando o pedido traz a medida junta (796x2380) numa coluna só"><input type="checkbox" class="chkJunta"> medida junta</label></div><textarea rows="7" spellcheck="false" placeholder="1,180 ou 1180&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="compr"><div class="cab"><label>Comprimento</label></div><textarea rows="7" spellcheck="false" placeholder="2,590 ou 2590&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="medida" hidden><div class="cab"><label>Medida (L x C)</label><label class="junta" title="Desmarque para voltar a Largura e Comprimento separados"><input type="checkbox" class="chkJunta"> medida junta</label></div><textarea rows="7" spellcheck="false" placeholder="796x2380&#10;796 X 2380&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="vincos"><div class="cab"><label>Vincos</label></div><textarea rows="7" spellcheck="false" placeholder="118X560X118&#10;…"></textarea><div class="st"></div></div>
+      <div class="colcampo" data-campo="vend"><div class="cab"><label id="lblColVend">Preço do vendedor</label></div><textarea rows="7" spellcheck="false" placeholder="6,63&#10;…"></textarea><div class="st"></div></div>
     </div>
     <div class="acoes" style="margin-top:8px">
       <label class="inline">Preencher a partir do item <input id="inIni" type="number" min="1" value="1" style="width:72px"></label>
@@ -989,7 +993,7 @@ function aplicaColuna(box) {
   salvaOrc(); tudo();
 }
 function resumoColunas() {
-  const cont = $$('#colunas .colcampo').map(b => ({ nome: b.querySelector('label').textContent, n: linhasDaColuna(b.querySelector('textarea').value).length })).filter(x => x.n);
+  const cont = $$('#colunas .colcampo').filter(b => !b.hidden).map(b => ({ nome: b.querySelector('label').textContent, n: linhasDaColuna(b.querySelector('textarea').value).length })).filter(x => x.n);
   const el = $('#colunasResumo');
   if (cont.length < 2) { el.innerHTML = ''; return; }
   el.innerHTML = new Set(cont.map(x => x.n)).size === 1
@@ -1013,6 +1017,19 @@ $$('#colunas .colcampo').forEach(box => {
 });
 $('#inIni').addEventListener('change', () => $$('#colunas .colcampo').forEach(b => { if (b.querySelector('textarea').value.trim()) aplicaColuna(b); }));
 $('#btnLimpaCampos').addEventListener('click', limpaCamposColagem);
+function mostraMedidaJunta(junta) {
+  $$('#colunas .colcampo').forEach(b => {
+    const c = b.dataset.campo;
+    if (c === 'medida') b.hidden = !junta;
+    if (c === 'larg' || c === 'compr') b.hidden = !!junta;
+  });
+  $$('#colunas .chkJunta').forEach(ch => { ch.checked = !!junta; });
+  resumoColunas();
+}
+$$('#colunas .chkJunta').forEach(ch => ch.addEventListener('change', () => {
+  cfg.medidaJunta = ch.checked; salvaCfg(); mostraMedidaJunta(cfg.medidaJunta);
+}));
+mostraMedidaJunta(!!cfg.medidaJunta);
 
 /* ---------- colar do Excel (várias colunas de uma vez) ---------- */
 function camposVaziosAtuais() {
