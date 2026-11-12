@@ -194,16 +194,21 @@ function calcItem(it, ctx) {
       r.avisos.push('vincos somam ' + fmtMM(v.soma) + ' mm, mas a chapa é ' + fmtMM(L) + ' x ' + fmtMM(C));
   }
   const pk = precoKgItem(it, r.papel, ctx);
-  r.fontePreco = pk.fonte;
-  if (!(pk.v > 0)) { if (!r.erros.length) r.erros.push('falta o R$/kg'); }
+  // preço digitado direto no item: V. unit. (vale mais) ou R$/m² — dispensam o R$/kg
+  const manVU = it.vUnitMan > 0, manM2 = !manVU && it.precoM2 > 0, manual = manVU || manM2;
+  r.fontePreco = manVU ? 'vunit' : manM2 ? 'm2' : pk.fonte;
+  if (!(pk.v > 0) && !manual) { if (!r.erros.length) r.erros.push('falta o R$/kg'); }
   else if (r.papel && r.m2) {
-    r.precoKg = pk.v;
     r.kgUn = r.m2 * r.papel.g / 1000;
-    const pm = precoM2(r.papel, pk, ctx);
-    r.rm2 = pm.v;                                      // preço do m² em reais (2 casas)
+    let pm;
+    if (manVU) pm = { v: +it.vUnitMan / r.m2, tabela: false };
+    else if (manM2) pm = { v: +it.precoM2, tabela: false };
+    else pm = precoM2(r.papel, pk, ctx);
+    r.precoKg = manual ? pm.v / r.papel.g * 1000 : pk.v;   // digitado em R$/m² ou V. unit.: R$/kg equivalente
+    r.rm2 = pm.v;                                      // preço do m² em reais
     r.tabela = pm.tabela;
     if (pm.tabela) r.fontePreco = 'tabela';
-    r.vUnitExato = r.m2 * r.rm2;
+    r.vUnitExato = manVU ? +it.vUnitMan : r.m2 * r.rm2;
     r.vUnit = arred(r.vUnitExato, 2);
     if (q > 0) {
       r.m2Tot = r.m2 * q;
@@ -213,7 +218,7 @@ function calcItem(it, ctx) {
       r.vTot = arred(r.vProd + r.vIpi, 2);
     }
     if (r.papel.linha === 'kraft') r.avisos.push('papel kraft: na tabela o preço é "COTAR"');
-    if (r.papel.linha === 'branca' && pk.fonte === 'geral' && !pm.tabela)
+    if (r.papel.linha === 'branca' && pk.fonte === 'geral' && !pm.tabela && !manual)
       r.avisos.push('papel branco no preço geral (' + fmtR(pk.v) + '/kg) — o branco costuma ser mais caro: confira o campo Branco');
   }
   conferir(it, r, ctx);

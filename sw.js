@@ -1,7 +1,7 @@
 /* Orçamento de Chapas Prime — service worker
    Para forçar atualização nos aparelhos: mude o número da versão (aqui e o ?v= dos scripts no index.html) e faça o commit. */
-const VERSAO = 'orcamento-chapas-v11';
-const ARQUIVOS = ['.', 'index.html', 'calc.js?v=11', 'excel.js?v=11', 'modelo-orcamento.xlsx', 'manifest.json', 'icon.svg', 'icon-maskable.svg'];
+const VERSAO = 'orcamento-chapas-v12';
+const ARQUIVOS = ['.', 'index.html', 'calc.js?v=12', 'excel.js?v=12', 'modelo-orcamento.xlsx', 'manifest.json', 'icon.svg', 'icon-maskable.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSAO).then(c => c.addAll(ARQUIVOS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));

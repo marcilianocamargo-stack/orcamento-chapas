@@ -8,8 +8,8 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="calc.js?v=11"></script>
-<script src="excel.js?v=11"></script>
+<script src="calc.js?v=12"></script>
+<script src="excel.js?v=12"></script>
 <style>
 /* Padrão visual dos apps da Prime (igual à Consulta de Estoque): azul #1a56a0 e branco */
 :root{
@@ -120,11 +120,13 @@ input.usado{background:#fff;border-color:var(--kraft);color:var(--kraft);font-we
 .tag.usado{background:var(--kraft);border-color:var(--kraft);color:#fff}
 .tag.usado .del{color:#fff}
 .tag .del{font-size:14px;padding:0 2px}
-#tbItens td.in.pkg{white-space:nowrap}
-#tbItens td.in.pkg input{width:48px;text-align:right;border-color:transparent;background:transparent;color:var(--kraft);font-weight:600}
-#tbItens td.in.pkg input:hover,#tbItens td.in.pkg input:focus{border-color:var(--borda);background:#fff}
-#tbItens td.in.pkg.esp input{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:800}
+#tbItens td.in.pkg,#tbItens td.in.prc{white-space:nowrap}
+#tbItens td.in.pkg input,#tbItens td.in.prc input{width:48px;text-align:right;border-color:transparent;background:transparent;color:var(--kraft);font-weight:600}
+#tbItens td.in.prc input{width:56px}
+#tbItens td.in.pkg input:hover,#tbItens td.in.pkg input:focus,#tbItens td.in.prc input:hover,#tbItens td.in.prc input:focus{border-color:var(--borda);background:#fff}
+#tbItens td.in.pkg.esp input,#tbItens td.in.prc.esp input{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:800}
 #tbItens td.in.pkg input::placeholder{color:var(--tinta3);opacity:1;font-weight:500}
+#tbItens td.in.prc input::placeholder{color:var(--kraft);opacity:1;font-weight:600}
 .lapis{border:0;background:none;color:var(--kraft);cursor:pointer;font-size:15px;padding:0 2px;vertical-align:middle}
 @media (max-width:900px){.grade.esp{grid-template-columns:repeat(2,minmax(0,1fr))}.espPapel{grid-column:1/-1}}
 
@@ -270,7 +272,7 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
       <thead><tr>
         <th>#</th><th>Quant.</th><th>Larg.</th><th>Compr.</th><th>Papel</th><th>Vincos</th>
         <th class="num">g/m²</th><th class="num">m²/ch.</th><th class="num">kg/ch.</th><th class="num">kg total</th>
-        <th class="num" title="R$ por kg de cada item. O lápis dá um preço só para aquele item">R$/kg ✎</th><th class="num">R$/m²</th><th class="num">V. unit.</th><th class="num">V. produtos</th>
+        <th class="num" title="R$ por kg de cada item. O lápis dá um preço só para aquele item">R$/kg ✎</th><th class="num" title="R$ por m². O lápis (ou digitar na célula) dá um R$/m² só para aquele item">R$/m² ✎</th><th class="num" title="Valor de uma chapa. Digitar aqui dá um V. unit. só para aquele item">V. unit. ✎</th><th class="num">V. produtos</th>
         <th class="num">V. total c/ IPI</th><th class="num" title="Diferença do preço que o vendedor passou">Dif.</th><th></th>
       </tr></thead>
       <tbody id="tbCorpo"></tbody>
@@ -585,6 +587,8 @@ function valorCampo(it, campo) {
     case 'vincos': return it.vincos || 'X';      // sem vinco = "X", como no pedido e no Excel
     case 'vend': { const k = VEND_CAMPO[orc.vendModo]; return it[k] > 0 ? fVal(+it[k]) : ''; }
     case 'pkg': return it.precoKg > 0 ? fVal(+it.precoKg) : '';
+    case 'rm2': return it.precoM2 > 0 ? fVal(+it.precoM2) : '';
+    case 'vun': return it.vUnitMan > 0 ? fVal(+it.vUnitMan) : '';
   }
   return '';
 }
@@ -605,9 +609,15 @@ function aplicaCampo(it, campo, txt) {
       if (isFinite(v) && v > 0) it[VEND_CAMPO[orc.vendModo]] = v;
       break;
     }
-    case 'pkg': { const v = C.numBR(txt, 'un'); it.precoKg = isFinite(v) && v > 0 ? v : null; break; }
+    case 'pkg': case 'rm2': case 'vun': {
+      const prop = PROP_PRECO[campo], v = C.numBR(txt, 'un');
+      if (isFinite(v) && v > 0) { Object.values(PROP_PRECO).forEach(p => delete it[p]); it[prop] = v; }
+      else delete it[prop];
+      break;
+    }
   }
 }
+const PROP_PRECO = { pkg: 'precoKg', rm2: 'precoM2', vun: 'vUnitMan' };   // preço digitado no item (só um vale por vez)
 function celulasCalc(i) {
   const r = calc.rs[i];
   const ok = isFinite(r.vUnit);
@@ -619,9 +629,7 @@ function celulasCalc(i) {
     isFinite(r.m2) ? fN(r.m2, 4) : '',
     isFinite(r.kgUn) ? fN(r.kgUn, 3) : '',
     isFinite(r.kgTot) ? fN(r.kgTot, 1) : '',
-    '|',
-    ok ? fN(r.rm2, 2) : '',
-    ok ? fN(r.vUnit, 2) : '',
+    '|pkg', '|rm2', '|vun',
     isFinite(r.vProd) ? fN(r.vProd, 2) : '',
     isFinite(r.vTot) ? fN(r.vTot, 2) : ''
   ];
@@ -633,19 +641,42 @@ function herdadoPkg(i) {
   if (r.papel && C.precoM2(r.papel, h, cx).tabela) h.fonte = 'preço de tabela (R$ ' + fN(C.precoM2(r.papel, h, cx).v, 2) + '/m²)';
   return h;
 }
-function htmlPkg(i) {
-  const it = orc.itens[i], h = herdadoPkg(i), esp = it.precoKg > 0;
-  return '<td class="in pkg' + (esp ? ' esp' : '') + '" title="' + esc(esp ? 'Preço só deste item (sem ele: ' + kg2(h.v) + ', ' + h.fonte + ')' : 'R$/kg ' + h.fonte + '. Clique no lápis para dar um preço só para este item') + '">' +
-    '<button class="lapis" data-lapis="' + i + '" tabindex="-1" title="Preço só deste item">✎</button>' +
-    '<input data-i="' + i + '" data-campo="pkg" value="' + esc(valorCampo(it, 'pkg')) + '" placeholder="' + esc(h.v > 0 ? fVal(h.v) : '') + '" inputmode="decimal" autocomplete="off"></td>';
+/* As 3 colunas de preço aceitam digitação: R$/kg, R$/m² e V. unit. Digitar em uma vale só para o item
+   (célula destacada) e tira o que tinha nas outras duas. Em branco = vale o preço do orçamento. */
+function infoPreco(i, campo) {
+  const it = orc.itens[i], r = calc.rs[i], esp = it[PROP_PRECO[campo]] > 0;
+  const outro = !esp && (it.precoKg > 0 || it.precoM2 > 0 || it.vUnitMan > 0);   // outro dos 3 foi digitado: este é o equivalente
+  const ok = isFinite(r.vUnit);
+  let ph = '', tit = '';
+  if (campo === 'pkg') {
+    const h = herdadoPkg(i);
+    ph = outro && isFinite(r.precoKg) ? fVal(r.precoKg) : (h.v > 0 ? fVal(h.v) : '');
+    tit = esp ? 'Preço só deste item (sem ele: ' + kg2(h.v) + ', ' + h.fonte + ')'
+      : (outro ? 'R$/kg equivalente ao preço digitado neste item' : 'R$/kg ' + h.fonte + '. Clique no lápis para dar um preço só para este item');
+  } else if (campo === 'rm2') {
+    ph = ok ? fN(r.rm2, 2) : '';
+    tit = esp ? 'R$/m² só deste item' : 'R$/m² calculado. Clique no lápis para dar um R$/m² só para este item';
+  } else {
+    ph = ok ? fN(r.vUnit, 2) : '';
+    tit = esp ? 'V. unit. só deste item' : 'V. unit. calculado. Clique no lápis para dar um V. unit. só para este item';
+  }
+  return { esp, ph, tit };
 }
-function atualizaPkg(i, tr) {
-  const td = tr.querySelector('td.pkg'); if (!td) return;
-  const it = orc.itens[i], h = herdadoPkg(i), esp = it.precoKg > 0;
-  td.classList.toggle('esp', esp);
-  td.title = esp ? 'Preço só deste item (sem ele: ' + kg2(h.v) + ', ' + h.fonte + ')' : 'R$/kg ' + h.fonte + '. Clique no lápis para dar um preço só para este item';
-  const inp = td.querySelector('input');
-  inp.placeholder = h.v > 0 ? fVal(h.v) : '';
+function htmlPreco(i, campo) {
+  const it = orc.itens[i], f = infoPreco(i, campo);
+  return '<td class="in ' + (campo === 'pkg' ? 'pkg' : 'prc') + (f.esp ? ' esp' : '') + '" title="' + esc(f.tit) + '">' +
+    '<button class="lapis" data-lapis="' + i + '" tabindex="-1" title="Preço só deste item">✎</button>' +
+    '<input data-i="' + i + '" data-campo="' + campo + '" value="' + esc(valorCampo(it, campo)) + '" placeholder="' + esc(f.ph) + '" inputmode="decimal" autocomplete="off"></td>';
+}
+function atualizaPreco(i, tr) {
+  ['pkg', 'rm2', 'vun'].forEach(campo => {
+    const inp = tr.querySelector('input[data-campo="' + campo + '"]'); if (!inp) return;
+    const td = inp.parentNode, f = infoPreco(i, campo);
+    td.classList.toggle('esp', f.esp);
+    td.title = f.tit;
+    inp.placeholder = f.ph;
+    if (document.activeElement !== inp) inp.value = valorCampo(orc.itens[i], campo);
+  });
 }
 function htmlDif(r) {
   if (!r.conf) return '';
@@ -664,6 +695,11 @@ function htmlMsg(i) {
       (isFinite(c.difTot) ? '; ' + fRs(c.difTot) + ' no item' : '') + ') — ' + esc(c.dica) + '</span>');
   }
   if (r.conf) r.conf.contas.forEach(t => partes.push('<span class="m-erro">✗ conta do vendedor: ' + esc(t) + '</span>'));
+  if (r.fontePreco === 'm2' || r.fontePreco === 'vunit') {
+    const h = herdadoPkg(i);
+    partes.push('<span class="m-dica">✎ ' + (r.fontePreco === 'm2' ? 'R$/m² digitado' : 'V. unit. digitado') + ' neste item: equivale a ' + kg2(r.precoKg) +
+      (h.v > 0 ? ' (' + fPct((r.precoKg - h.v) / h.v) + ' sobre ' + kg2(h.v) + ')' : '') + '</span>');
+  }
   if (r.fontePreco === 'item' && isFinite(r.precoKg)) {
     const h = herdadoPkg(i);
     partes.push('<span class="m-dica">✎ preço especial deste item: ' + kg2(r.precoKg) + (h.v > 0 ? ' (' + fPct((r.precoKg - h.v) / h.v) + ' sobre ' + kg2(h.v) + ')' : '') + '</span>');
@@ -688,7 +724,7 @@ function renderItens() {
     return '<tr class="item ' + classeLinha(r) + '" data-i="' + i + '"><td class="n">' + (i + 1) + '</td>' +
       CAMPOS_TAB.map(c => '<td class="in ' + c + '"><input data-i="' + i + '" data-campo="' + c + '" value="' + esc(valorCampo(it, c)) + '"' +
         (c === 'papel' || c === 'vincos' ? '' : ' inputmode="decimal"') + ' autocomplete="off" spellcheck="false"></td>').join('') +
-      celulasCalc(i).map(h => h === '|' ? htmlPkg(i) : '<td class="num calc">' + h + '</td>').join('') +
+      celulasCalc(i).map(h => h.charAt(0) === '|' ? htmlPreco(i, h.slice(1)) : '<td class="num calc">' + h + '</td>').join('') +
       '<td class="num difc">' + htmlDif(r) + '</td>' +
       '<td><button class="del" data-del="' + i + '" title="Tirar o item">×</button></td></tr>' +
       '<tr class="msg" data-msg="' + i + '"' + (msg ? '' : ' hidden') + '><td colspan="17">' + msg + '</td></tr>';
@@ -710,9 +746,9 @@ function atualizaLinha(i) {
   if (!tr) return;
   const r = calc.rs[i];
   tr.className = 'item ' + classeLinha(r);
-  const cs = celulasCalc(i).filter(h => h !== '|');
+  const cs = celulasCalc(i).filter(h => h.charAt(0) !== '|');
   tr.querySelectorAll('td.calc').forEach((td, k) => { td.innerHTML = cs[k]; });
-  atualizaPkg(i, tr);
+  atualizaPreco(i, tr);
   tr.querySelector('td.difc').innerHTML = htmlDif(r);
   const m = document.querySelector('#tbCorpo tr.msg[data-msg="' + i + '"]');
   const h = htmlMsg(i);
@@ -770,7 +806,7 @@ corpo.addEventListener('paste', e => {
   if (!/[\t\n]/.test(txt.replace(/[\r\n]+$/, ''))) return;   // um valor só: colagem normal
   e.preventDefault();
   const grade = C.lerTSV(txt, { semEspacos: true });
-  const ordem = inp.dataset.campo === 'pkg' ? ['pkg'] : CAMPOS_TAB.concat(['vend']);
+  const ordem = PROP_PRECO[inp.dataset.campo] ? [inp.dataset.campo] : CAMPOS_TAB.concat(['vend']);
   const c0 = ordem.indexOf(inp.dataset.campo), i0 = +inp.dataset.i;
   grade.forEach((lin, di) => {
     const i = i0 + di;
@@ -846,7 +882,7 @@ function renderConf() {
   }).join('');
   let h = '<div class="cardtop"><h2>Conferência do vendedor</h2><button class="btn mini" id="btnCopiaConf">Copiar para WhatsApp</button></div>';
   const combinado = kg2(cx.precoKg) + (textoEsp(orc.especiais) ? ' (' + esc(textoEsp(orc.especiais)) + ')' : '') +
-    (orc.itens.some(it => it.precoKg > 0) ? ' e os ✎ dos itens' : '');
+    (orc.itens.some(it => it.precoKg > 0 || it.precoM2 > 0 || it.vUnitMan > 0) ? ' e os ✎ dos itens' : '');
   if (t.conf.n) {
     const d = t.conf.vendProd - t.conf.corretoProd;
     h += div.length
