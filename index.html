@@ -8,8 +8,8 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="calc.js?v=12"></script>
-<script src="excel.js?v=12"></script>
+<script src="calc.js?v=13"></script>
+<script src="excel.js?v=13"></script>
 <style>
 /* Padrão visual dos apps da Prime (igual à Consulta de Estoque): azul #1a56a0 e branco */
 :root{
@@ -112,10 +112,6 @@ td input,td select{padding:5px 7px;font-size:13.5px;border-radius:6px;border-wid
 .totais .ruim b{color:#ffd0c9}.totais .bom b{color:#c8f2cf}
 
 /* preços especiais e lápis */
-.especiais{margin-top:12px;padding-top:10px;border-top:1px solid var(--linha)}
-.grade.esp{grid-template-columns:repeat(4,minmax(90px,1fr)) minmax(250px,2fr)}
-.grade.esp label{margin-top:6px}
-.espPapel .linha{display:flex;gap:6px}.espPapel select{flex:1.3;min-width:0}.espPapel input{flex:1;min-width:0}
 input.usado{background:#fff;border-color:var(--kraft);color:var(--kraft);font-weight:700}
 .tag.usado{background:var(--kraft);border-color:var(--kraft);color:#fff}
 .tag.usado .del{color:#fff}
@@ -128,7 +124,6 @@ input.usado{background:#fff;border-color:var(--kraft);color:var(--kraft);font-we
 #tbItens td.in.pkg input::placeholder{color:var(--tinta3);opacity:1;font-weight:500}
 #tbItens td.in.prc input::placeholder{color:var(--kraft);opacity:1;font-weight:600}
 .lapis{border:0;background:none;color:var(--kraft);cursor:pointer;font-size:15px;padding:0 2px;vertical-align:middle}
-@media (max-width:900px){.grade.esp{grid-template-columns:repeat(2,minmax(0,1fr))}.espPapel{grid-column:1/-1}}
 
 /* colagem */
 .colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:6px}
@@ -219,19 +214,6 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
       <div><label for="inData">Data</label><input id="inData" type="date"></div>
     </div>
     <div id="kgInfo" class="nota"></div>
-    <div class="especiais">
-      <div class="nota" style="margin:0 0 2px"><b>Preço diferente</b> (opcional — em branco vale o geral; vale o mais específico: item ✎ → tipo de papel → branco → onda)</div>
-      <div class="grade esp">
-        <div><label>Onda B</label><input data-esp="onda.B" inputmode="decimal" autocomplete="off"></div>
-        <div><label>Onda C</label><input data-esp="onda.C" inputmode="decimal" autocomplete="off"></div>
-        <div><label>Dupla (BC)</label><input data-esp="onda.BC" inputmode="decimal" autocomplete="off"></div>
-        <div><label>Branco</label><input data-esp="branco" inputmode="decimal" autocomplete="off"></div>
-        <div class="espPapel"><label>Só um tipo de papel</label>
-          <div class="linha"><select id="selEspPapel"></select><input id="inEspPapel" inputmode="decimal" autocomplete="off" placeholder="R$/kg"><button class="btn mini sec" id="btnEspPapel">Pôr</button></div>
-        </div>
-      </div>
-      <div id="chipsEspPapel" class="chips"></div>
-    </div>
     <div id="rm2Info" class="chips"></div>
   </div>
 
@@ -333,15 +315,15 @@ details.card>summary small{font-size:13px;font-weight:600;color:var(--tinta2);fl
       <div><label>Tolerância na conferência (%)</label><input data-cfg="tol" inputmode="decimal"></div>
     </div>
     <p class="nota">Cálculo: peso = largura × comprimento × g/m² ÷ 1000. <b>No preço de tabela</b> o R$/m² é o da Tabela de especificação (coluna abaixo, em Papéis).
-      <b>Com outro preço</b> (vendedor, onda, branco, papel ou lápis do item): R$/m² = g/m² ÷ 1000 × R$/kg, arredondado sempre para cima no centavo.
+      <b>Com outro preço</b> (vendedor ou preço digitado no item: R$/kg, R$/m² ou V. unit.): R$/m² = g/m² ÷ 1000 × R$/kg, arredondado sempre para cima no centavo.
       V. unit. = m² da chapa × R$/m² (no centavo, 5 ou mais sobe); IPI sobre o total dos produtos.
-      Preço diferente para onda B, C, dupla, branco ou um tipo de papel se põe no próprio orçamento (e fica guardado no vendedor). Diferença dentro da tolerância conta como certa.</p>
+      Um preço diferente para um item se digita na própria linha (R$/kg, R$/m² ou V. unit.). Diferença dentro da tolerância conta como certa.</p>
   </div>
 
   <div class="card">
     <div class="cardtop"><h2>Vendedores</h2><button class="btn mini" id="btnAddVend">+ Vendedor</button></div>
     <div class="tabwrap"><table>
-      <thead><tr><th>Nome</th><th>R$/kg geral</th><th>Fone</th><th>E-mail</th><th>Preços diferentes</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>R$/kg geral</th><th>Fone</th><th>E-mail</th><th></th></tr></thead>
       <tbody id="tbVend"></tbody>
     </table></div>
   </div>
@@ -429,7 +411,7 @@ function novoOrc() {
 }
 const papeis = () => cfg.papeis || C.PAPEIS_PADRAO;
 const ctx = () => ({ precoKg: +orc.precoKg || 0, ipi: (+cfg.ipi || 0) / 100, tol: (+cfg.tol || 0) / 100,
-  especiais: orc.especiais || {}, papeis: papeis(), limites: cfg.limites, precoBase: +cfg.precoBase || 0,
+  especiais: {}, papeis: papeis(), limites: cfg.limites, precoBase: +cfg.precoBase || 0,
   vendedores: cfg.vendedores, tabelaM2: cfg.tabelaM2 || {} });
 const salvaCfg = () => grava(K_CFG, cfg);
 function salvaOrc(alterou) { if (alterou !== false) orc.alterado = true; grava(K_ATUAL, orc); }
@@ -459,28 +441,8 @@ function vendAtual() { return cfg.vendedores.find(v => v.id === orc.vendId) || n
 function selecionaVendedor(id) {
   orc.vendId = id || '';
   const v = vendAtual();
-  if (v) { orc.precoKg = v.precoKg; orc.especiais = limpaEsp(v.especiais); orc.vendNome = v.nome; orc.vendFone = v.fone || ''; orc.vendEmail = v.email || ''; }
+  if (v) { orc.precoKg = v.precoKg; orc.especiais = {}; orc.vendNome = v.nome; orc.vendFone = v.fone || ''; orc.vendEmail = v.email || ''; }
   else { orc.precoKg = cfg.precoBase; orc.especiais = {}; }
-}
-/* preços especiais: { onda:{B,C,BC}, branco, papel:{cod:R$} } — tira o que está vazio */
-function limpaEsp(e) {
-  e = JSON.parse(JSON.stringify(e || {}));
-  const out = {}, onda = {}, pp = {};
-  ['B', 'C', 'BC'].forEach(o => { if ((e.onda || {})[o] > 0) onda[o] = +e.onda[o]; });
-  if (Object.keys(onda).length) out.onda = onda;
-  if (e.branco > 0) out.branco = +e.branco;
-  Object.keys(e.papel || {}).sort().forEach(c => { if (e.papel[c] > 0) pp[c] = +e.papel[c]; });
-  if (Object.keys(pp).length) out.papel = pp;
-  return out;
-}
-const mesmoEsp = (a, b) => JSON.stringify(limpaEsp(a)) === JSON.stringify(limpaEsp(b));
-function textoEsp(e) {
-  e = limpaEsp(e);
-  const partes = [];
-  ['B', 'C', 'BC'].forEach(o => { if (e.onda && e.onda[o]) partes.push(C.NOME_ONDA[o] + ' ' + fN(e.onda[o], 2)); });
-  if (e.branco) partes.push('branco ' + fN(e.branco, 2));
-  Object.entries(e.papel || {}).forEach(([c, v]) => partes.push(c + ' ' + fN(v, 2)));
-  return partes.join(' · ');
 }
 function renderVend() {
   const sel = $('#selVend');
@@ -500,22 +462,19 @@ function infoKg() {
   if (!(p > 0)) h = '<span class="m-erro">Informe o R$ por kg deste orçamento.</span>';
   else {
     const vsBase = base > 0 && Math.abs(p - base) > 0.00001 ? ' · ' + fPct((p - base) / base) + ' em relação à tabela (' + kg2(base) + ')' : '';
-    const esp = textoEsp(orc.especiais);
-    const espTxt = esp ? ' · diferentes: ' + esc(esp) : '';
-    if (v && (Math.abs(p - (+v.precoKg || 0)) > 0.00001 || !mesmoEsp(orc.especiais, v.especiais)))
-      h = '<b>Avulso:</b> geral ' + kg2(p) + espTxt + ' (guardado para ' + esc(v.nome) + ': ' + (v.precoKg > 0 ? kg2(+v.precoKg) : 'nenhum') +
-        (textoEsp(v.especiais) ? ' · ' + esc(textoEsp(v.especiais)) : '') + ')' +
-        ' · <button class="linkbtn" id="btnGuardaKg">guardar estes preços para ' + esc(v.nome) + '</button>';
-    else if (v) h = 'Preços de <b>' + esc(v.nome) + '</b>: geral ' + kg2(p) + espTxt + vsBase;
-    else if (base > 0 && Math.abs(p - base) < 0.00001) h = 'Preço de tabela: ' + kg2(p) + espTxt;
-    else h = '<b>Avulso:</b> geral ' + kg2(p) + espTxt + vsBase;
+    if (v && Math.abs(p - (+v.precoKg || 0)) > 0.00001)
+      h = '<b>Avulso:</b> ' + kg2(p) + ' (guardado para ' + esc(v.nome) + ': ' + (v.precoKg > 0 ? kg2(+v.precoKg) : 'nenhum') + ')' +
+        ' · <button class="linkbtn" id="btnGuardaKg">guardar este preço para ' + esc(v.nome) + '</button>';
+    else if (v) h = 'Preço de <b>' + esc(v.nome) + '</b>: ' + kg2(p) + vsBase;
+    else if (base > 0 && Math.abs(p - base) < 0.00001) h = 'Preço de tabela: ' + kg2(p);
+    else h = '<b>Avulso:</b> ' + kg2(p) + vsBase;
   }
   $('#kgInfo').innerHTML = h;
   const b = $('#btnGuardaKg');
   if (b) b.addEventListener('click', () => {
     const vv = vendAtual(); if (!vv) return;
-    vv.precoKg = +orc.precoKg; vv.especiais = limpaEsp(orc.especiais); salvaCfg(); renderVend();
-    toast('Preços de ' + vv.nome + ' guardados: geral ' + kg2(vv.precoKg) + (textoEsp(vv.especiais) ? ' · ' + textoEsp(vv.especiais) : ''));
+    vv.precoKg = +orc.precoKg; delete vv.especiais; salvaCfg(); renderVend();
+    toast('Preço de ' + vv.nome + ' guardado: ' + kg2(vv.precoKg));
   });
   // R$/m² dos papéis usados (pelo preço do papel/onda/branco, sem o lápis dos itens)
   const cx = ctx(), usados = new Map();
@@ -525,51 +484,7 @@ function infoKg() {
     return '<span class="tag" title="' + esc(pm.tabela ? 'R$/m² da Tabela de especificação' : pa.g + ' g/m² × ' + kg2(pk.v) + ' (' + pk.fonte + '), centavo para cima') + '">' + esc(pa.cod) + ' ' + pa.g + ' g' +
       (pk.fonte !== 'geral' ? ' · ' + kg2(pk.v) : '') + ' · R$ ' + fN(pm.v, 2) + '/m²' + (pm.tabela ? ' (tabela)' : '') + '</span>';
   }).join('') : '';
-  renderEsp();
 }
-/* ---------- preços especiais (onda, branco, tipo de papel) ---------- */
-function pegaEsp(caminho) { return caminho.split('.').reduce((o, k) => (o == null ? o : o[k]), orc.especiais || {}); }
-function renderEsp() {
-  const geral = +orc.precoKg > 0 ? fVal(+orc.precoKg) : '';
-  $$('[data-esp]').forEach(el => {
-    el.placeholder = geral ? geral + ' (geral)' : 'geral';
-    if (document.activeElement !== el) { const v = pegaEsp(el.dataset.esp); el.value = v > 0 ? fVal(+v) : ''; }
-    el.classList.toggle('usado', pegaEsp(el.dataset.esp) > 0);
-  });
-  const sel = $('#selEspPapel');
-  if (sel.options.length !== papeis().length + 1) sel.innerHTML = '<option value="">escolha o papel…</option>' + papeis().map(pa => '<option>' + esc(pa.cod) + '</option>').join('');
-  const pp = (orc.especiais || {}).papel || {};
-  $('#chipsEspPapel').innerHTML = Object.keys(pp).filter(c => pp[c] > 0).sort().map(c =>
-    '<span class="tag usado">' + esc(c) + ' ' + kg2(+pp[c]) + ' <button class="del" data-delesp="' + esc(c) + '" title="Tirar">×</button></span>').join('');
-}
-function poeEsp(caminho, v) {
-  const ks = caminho.split('.');
-  orc.especiais = orc.especiais || {};
-  let o = orc.especiais;
-  ks.slice(0, -1).forEach(k => { o = o[k] = o[k] || {}; });
-  o[ks[ks.length - 1]] = v > 0 ? v : null;
-  orc.especiais = limpaEsp(orc.especiais);
-}
-$$('[data-esp]').forEach(el => el.addEventListener('input', () => {
-  const v = C.numBR(el.value, 'un');
-  poeEsp(el.dataset.esp, isFinite(v) ? v : null);
-  salvaOrc(); recalcTela();
-}));
-$$('[data-esp]').forEach(el => el.addEventListener('change', () => renderEsp()));
-$('#btnEspPapel').addEventListener('click', () => {
-  const cod = $('#selEspPapel').value, v = C.numBR($('#inEspPapel').value, 'un');
-  if (!cod) return toast('Escolha o tipo de papel', 'ruim');
-  if (!(v > 0)) return toast('Informe o R$/kg desse papel', 'ruim');
-  poeEsp('papel.' + cod, v);
-  $('#inEspPapel').value = ''; $('#selEspPapel').value = '';
-  salvaOrc(); tudo();
-});
-$('#inEspPapel').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnEspPapel').click(); });
-$('#chipsEspPapel').addEventListener('click', e => {
-  const b = e.target.closest('[data-delesp]'); if (!b) return;
-  poeEsp('papel.' + b.dataset.delesp, null);
-  salvaOrc(); tudo();
-});
 $('#selVend').addEventListener('change', e => { selecionaVendedor(e.target.value); salvaOrc(); tudo(); });
 $('#inKg').addEventListener('input', e => {
   const v = C.numBR(e.target.value, 'un'); orc.precoKg = isFinite(v) && v > 0 ? v : null; salvaOrc(); recalcTela();
@@ -881,7 +796,7 @@ function renderConf() {
     return '<span class="tag ' + (certo ? 'st-ok' : 'st-abaixo') + '">R$ ' + fN(media, 2) + '/kg · ' + n + ' ite' + (n === 1 ? 'm' : 'ns') + ' (' + cods.join(', ') + ')</span>';
   }).join('');
   let h = '<div class="cardtop"><h2>Conferência do vendedor</h2><button class="btn mini" id="btnCopiaConf">Copiar para WhatsApp</button></div>';
-  const combinado = kg2(cx.precoKg) + (textoEsp(orc.especiais) ? ' (' + esc(textoEsp(orc.especiais)) + ')' : '') +
+  const combinado = kg2(cx.precoKg) +
     (orc.itens.some(it => it.precoKg > 0 || it.precoM2 > 0 || it.vUnitMan > 0) ? ' e os ✎ dos itens' : '');
   if (t.conf.n) {
     const d = t.conf.vendProd - t.conf.corretoProd;
@@ -925,7 +840,7 @@ function ligaTotalVend() {
 function textoConferencia() {
   const t = calc.t, cx = ctx(), L = [];
   L.push('*Conferência do orçamento nº ' + orc.num + (orc.cliente ? ' — ' + orc.cliente : '') + '*');
-  L.push('Preço combinado: ' + kg2(cx.precoKg) + (textoEsp(orc.especiais) ? ' · ' + textoEsp(orc.especiais) : '') + (orc.vendNome ? ' (' + orc.vendNome + ')' : ''));
+  L.push('Preço combinado: ' + kg2(cx.precoKg) + (orc.vendNome ? ' (' + orc.vendNome + ')' : ''));
   const div = calc.rs.map((r, i) => ({ r, i })).filter(x => x.r.conf && (x.r.conf.status !== 'ok' || x.r.conf.contas.length));
   if (t.conf.n) {
     if (!div.length) L.push('Os ' + t.conf.n + ' itens conferem.');
@@ -1281,9 +1196,8 @@ function renderTabela() {
     '<td><input data-vend="' + k + '" data-k="precoKg" inputmode="decimal" value="' + (v.precoKg > 0 ? esc(fVal(+v.precoKg)) : '') + '" placeholder="R$ por kg" style="width:110px"></td>' +
     '<td><input data-vend="' + k + '" data-k="fone" value="' + esc(v.fone || '') + '"></td>' +
     '<td><input data-vend="' + k + '" data-k="email" value="' + esc(v.email || '') + '"></td>' +
-    '<td class="nota" style="white-space:normal;min-width:140px" title="Para mudar: escolha o vendedor no orçamento, ajuste e clique em guardar">' + esc(textoEsp(v.especiais) || '—') + '</td>' +
     '<td><button class="del" data-delvend="' + k + '" title="Excluir vendedor">×</button></td></tr>').join('')
-    : '<tr><td colspan="6" class="vazio">Nenhum vendedor. Clique em “+ Vendedor”.</td></tr>';
+    : '<tr><td colspan="5" class="vazio">Nenhum vendedor. Clique em “+ Vendedor”.</td></tr>';
   const base = +cfg.precoBase;
   $('#tbPapeis').innerHTML = papeis().map((p, k) => {
     const pk = base > 0 ? base : 0;
